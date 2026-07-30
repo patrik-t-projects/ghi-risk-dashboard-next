@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     const dashboardPath = path.join(
       process.cwd(),
       "dashboard-html",
-      "imbalance-ch.html",
+      "imbalance_dashboard.html",
     );
     const html = await readFile(dashboardPath, "utf8");
 
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     return Response.json(
       {
         error:
-          "Place your finished file at dashboard-html/imbalance-ch.html and redeploy the site.",
+          "Place your finished file at dashboard-html/imbalance_dashboard.html and redeploy the site.",
       },
       { status: 404 },
     );

@@ -1,6 +1,7 @@
 # Imbalance CH dashboard
 
-Replace `imbalance-ch.html` in this folder with the finished dashboard HTML.
+Replace `imbalance_dashboard.html` in this folder with the finished dashboard
+HTML.
 
 The file is deliberately outside `public/`. It is served through the
 authenticated `/api/dashboard-html` endpoint, so visitors cannot open it
