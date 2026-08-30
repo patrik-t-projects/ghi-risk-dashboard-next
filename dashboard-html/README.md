@@ -1,7 +1,12 @@
 # Imbalance CH dashboard
 
-Replace `imbalance_dashboard.html` in this folder with the finished dashboard
-HTML.
+This protected folder contains the standalone dashboards shown after login:
+
+- `imbalance_dashboard.html` — **Imbalance CH model**
+- `icon_forecast.html` — **ICON forecast**
+
+Replace either file with the corresponding finished dashboard HTML while
+keeping the filename unchanged.
 
 The file is deliberately outside `public/`. It is served through the
 authenticated `/api/dashboard-html` endpoint, so visitors cannot open it

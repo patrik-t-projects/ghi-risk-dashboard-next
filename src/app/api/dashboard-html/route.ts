@@ -4,6 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
+const DASHBOARD_FILES = {
+  "imbalance-ch": "imbalance_dashboard.html",
+  "icon-forecast": "icon_forecast.html",
+} as const;
+
+type DashboardId = keyof typeof DASHBOARD_FILES;
+
 export async function GET(request: Request) {
   const authorization = request.headers.get("authorization");
   const accessToken = authorization?.startsWith("Bearer ")
@@ -44,11 +51,20 @@ export async function GET(request: Request) {
     );
   }
 
+  const dashboardId = new URL(request.url).searchParams.get(
+    "dashboard",
+  ) as DashboardId | null;
+  const dashboardFile = dashboardId ? DASHBOARD_FILES[dashboardId] : null;
+
+  if (!dashboardFile) {
+    return Response.json({ error: "Unknown dashboard." }, { status: 400 });
+  }
+
   try {
     const dashboardPath = path.join(
       process.cwd(),
       "dashboard-html",
-      "imbalance_dashboard.html",
+      dashboardFile,
     );
     const html = await readFile(dashboardPath, "utf8");
 
@@ -63,7 +79,7 @@ export async function GET(request: Request) {
     return Response.json(
       {
         error:
-          "Place your finished file at dashboard-html/imbalance_dashboard.html and redeploy the site.",
+          `Place your finished file at dashboard-html/${dashboardFile} and redeploy the site.`,
       },
       { status: 404 },
     );
