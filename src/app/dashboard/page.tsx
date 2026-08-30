@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
@@ -21,8 +21,12 @@ type DashboardView = "empty" | DashboardId;
 
 export default function DashboardPage() {
   const router = useRouter();
+  const dashboardAreaRef = useRef<HTMLElement>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const [activeView, setActiveView] = useState<DashboardView>("empty");
   const [dashboardHtml, setDashboardHtml] = useState<
     Partial<Record<DashboardId, string>>
@@ -50,6 +54,25 @@ export default function DashboardPage() {
     loadUser();
   }, [router]);
 
+  useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 768px)");
+    const handleWidthChange = (event: MediaQueryListEvent | MediaQueryList) => {
+      setSidebarOpen(event.matches);
+    };
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === dashboardAreaRef.current);
+    };
+
+    handleWidthChange(desktopQuery);
+    desktopQuery.addEventListener("change", handleWidthChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      desktopQuery.removeEventListener("change", handleWidthChange);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.replace("/login");
@@ -57,6 +80,10 @@ export default function DashboardPage() {
 
   async function openDashboard(dashboardId: DashboardId) {
     setActiveView(dashboardId);
+
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setSidebarOpen(false);
+    }
 
     if (dashboardHtml[dashboardId]) {
       return;
@@ -112,6 +139,31 @@ export default function DashboardPage() {
     }
   }
 
+  async function toggleFullscreen() {
+    const dashboardArea = dashboardAreaRef.current;
+
+    if (!dashboardArea) {
+      return;
+    }
+
+    if (fallbackFullscreen) {
+      setFallbackFullscreen(false);
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (document.fullscreenEnabled && dashboardArea.requestFullscreen) {
+      await dashboardArea.requestFullscreen();
+      return;
+    }
+
+    setFallbackFullscreen(true);
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#071018] text-slate-200">
@@ -132,10 +184,24 @@ export default function DashboardPage() {
     DashboardId,
     (typeof DASHBOARDS)[DashboardId],
   ][];
+  const fullscreenActive = isFullscreen || fallbackFullscreen;
 
   return (
-    <main className="flex min-h-screen bg-[#071018] text-slate-100">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-white/10 bg-[#0b1722] p-4">
+    <main className="relative flex min-h-dvh bg-[#071018] text-slate-100">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close dashboard menu"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-20 bg-black/55 md:hidden"
+        />
+      )}
+
+      <aside
+        className={`${
+          sidebarOpen ? "flex" : "hidden"
+        } w-72 shrink-0 flex-col border-r border-white/10 bg-[#0b1722] p-4 max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:shadow-2xl`}
+      >
         <div className="border-b border-white/10 px-3 pb-5 pt-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-400">
             GHI Risk
@@ -184,16 +250,42 @@ export default function DashboardPage() {
         </div>
       </aside>
 
-      <section className="relative flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center border-b border-white/10 bg-[#09131d] px-6">
-          <div>
+      <section
+        ref={dashboardAreaRef}
+        className={`relative flex min-w-0 flex-1 flex-col bg-[#071018] ${
+          fallbackFullscreen ? "fixed inset-0 z-50" : ""
+        }`}
+      >
+        <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#09131d] px-3 py-2 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            {!fullscreenActive && (
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((current) => !current)}
+                aria-expanded={sidebarOpen}
+                className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+              >
+                {sidebarOpen ? "Hide menu" : "Show menu"}
+              </button>
+            )}
+            <div className="min-w-0">
             <p className="text-sm font-medium text-slate-200">
               {activeDashboard?.label ?? "Model workspace"}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="truncate text-xs text-slate-500">
               {activeDashboard?.description ?? "Select a model from the sidebar"}
             </p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            disabled={activeView === "empty"}
+            className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {fullscreenActive ? "Exit fullscreen" : "Fullscreen"}
+          </button>
         </header>
 
         <div className="min-h-0 flex-1">
@@ -246,7 +338,7 @@ export default function DashboardPage() {
             <iframe
               title={`${DASHBOARDS[activeView].label} dashboard`}
               srcDoc={activeHtml}
-              className="block h-[calc(100vh-4rem)] w-full border-0 bg-white"
+              className="block h-[calc(100dvh-4rem)] w-full border-0 bg-white"
               allow="fullscreen"
             />
           )}
