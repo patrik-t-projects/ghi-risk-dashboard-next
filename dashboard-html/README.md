@@ -12,5 +12,9 @@ The file is deliberately outside `public/`. It is served through the
 authenticated `/api/dashboard-html` endpoint, so visitors cannot open it
 without a valid Supabase login.
 
+The endpoint now checks the private Supabase Storage bucket `dashboard-html`
+first. These local files remain as deployment fallbacks while Storage is being
+configured.
+
 For the most reliable result, export the dashboard as a single self-contained
 HTML file with its CSS, JavaScript, and data embedded.

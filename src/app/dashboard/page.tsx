@@ -85,10 +85,6 @@ export default function DashboardPage() {
       setSidebarOpen(false);
     }
 
-    if (dashboardHtml[dashboardId]) {
-      return;
-    }
-
     setDashboardLoading(dashboardId);
     setDashboardErrors((current) => ({ ...current, [dashboardId]: undefined }));
 
@@ -105,6 +101,7 @@ export default function DashboardPage() {
       const response = await fetch(
         `/api/dashboard-html?dashboard=${encodeURIComponent(dashboardId)}`,
         {
+          cache: "no-store",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
