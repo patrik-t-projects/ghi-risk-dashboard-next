@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -47,6 +48,12 @@ export default function DashboardPage() {
         return;
       }
 
+      const { data: profile, error: profileError } = await supabase
+        .from("account_usernames").select("username").eq("user_id", data.user.id).maybeSingle();
+      if (!profileError && !profile) {
+        router.replace("/account");
+        return;
+      }
       setUser(data.user);
       setLoading(false);
     }
@@ -237,6 +244,7 @@ export default function DashboardPage() {
 
         <div className="border-t border-white/10 px-3 pt-4">
           <p className="truncate text-xs text-slate-500">{user?.email}</p>
+          <Link href="/account" className="mt-3 block text-sm text-cyan-300 hover:text-cyan-200">Account settings</Link>
           <button
             type="button"
             className="mt-3 text-sm text-slate-400 transition hover:text-white"
