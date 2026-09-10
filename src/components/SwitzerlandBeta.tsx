@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { ForecastData } from "@/lib/forecastCsv";
 import ForecastChart from "./ForecastChart";
@@ -15,10 +15,9 @@ const project = ([longitude, latitude]: Point): Point => [longitude * Math.PI / 
 export default function SwitzerlandBeta() {
   const [data, setData] = useState<ForecastData | null>(null);
   const [cantons, setCantons] = useState<Cantons | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const plots = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -49,8 +48,10 @@ export default function SwitzerlandBeta() {
       path: rings(feature.geometry).map(ring => ring.map((point, index) => `${index ? "L" : "M"}${xy(point).map(n => n.toFixed(2)).join(",")}`).join(" ") + "Z").join(" "),
     })) };
   }, [cantons]);
-  const station = data?.stations.find(s => s.id === selected);
-  function choose(id: string) { setSelected(id); }
+  const selectedStations = selected.flatMap(id => data?.stations.filter(s => s.id === id) ?? []);
+  function choose(id: string) {
+    setSelected(current => current.includes(id) ? current.filter(stationId => stationId !== id) : [...current, id]);
+  }
   if (error) return <div role="alert" className="m-6 rounded-xl border border-amber-300/30 p-6 text-amber-100">{error}<button className="ml-4 underline" onClick={() => { setError(""); setAttempt(n => n + 1); }}>Try again</button></div>;
   if (!data || !projection) return <p role="status" className="p-10 text-slate-400">Loading Switzerland and station forecasts…</p>;
   const dateLabel = (value: string) => new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -66,16 +67,17 @@ export default function SwitzerlandBeta() {
         <g fill="url(#canton-fill)" stroke="#698598" strokeWidth="0.85" strokeLinejoin="round" fillRule="evenodd">
           {projection.paths.map(canton => <path key={canton.name} d={canton.path}><title>{canton.name}</title></path>)}
         </g>
-        {data.stations.map(s => { const [x, y] = projection.xy([s.longitude, s.latitude]); return <g key={s.id} transform={`translate(${x},${y})`} className={styles.station} role="button" tabIndex={0} aria-label={`Show ${s.name} (${s.id}) forecasts`} aria-pressed={selected === s.id} onClick={() => choose(s.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(s.id); } }}>
+        {data.stations.map(s => { const [x, y] = projection.xy([s.longitude, s.latitude]); return <g key={s.id} transform={`translate(${x},${y})`} className={styles.station} role="button" tabIndex={0} aria-label={`${selected.includes(s.id) ? "Hide" : "Show"} ${s.name} (${s.id}) forecasts`} aria-pressed={selected.includes(s.id)} onClick={() => choose(s.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(s.id); } }}>
           <title>{s.name} · {s.id}</title><circle r="22" fill="transparent" /><circle className={styles.halo} r="15" fill="#ef4444" opacity="0.12" /><circle className={styles.dot} r="6" fill="#ef4444" stroke="#fecaca" strokeWidth="1.8" />
           <text x="16" y="-13" fill="#f8fafc" fontSize="14" fontWeight="600" paintOrder="stroke" stroke="#102332" strokeWidth="4">{s.name}</text>
         </g>; })}
       </svg>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-5 py-3 text-[10px] text-slate-500"><span>26 cantons · Switzerland</span><a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer" className="hover:text-slate-300">Boundaries: © swisstopo · geoBoundaries (2022)</a></div>
     </section>
-    {station ? <div ref={plots} className="mt-7 pb-5">
+    {selectedStations.map(station => <div key={station.id} className="mt-7 pb-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{station.name} <span className="ml-2 text-sm font-normal text-slate-500">{station.id} · Forecast comparison</span></h2><p className="text-xs text-slate-400">Drag to zoom · Double-click to reset · Click legend to toggle</p></div>
       <div className={styles.chartGrid}><ForecastChart data={data} station={station} model="icon_ch1" /><ForecastChart data={data} station={station} model="icon_ch2" /></div>
-    </div> : <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Click the red Cham marker to open ICON1 and ICON2 below the map.</div>}
+    </div>)}
+    {selectedStations.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Click a red station marker to open its plots. Click again to hide them.</div>}
   </div>;
 }

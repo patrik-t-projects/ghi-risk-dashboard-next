@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ForecastData, StationForecast } from "@/lib/forecastCsv";
 
+const runLabel = (run: string) => `${run.slice(6, 8)}.${run.slice(4, 6)}. ${Number(run.slice(9, 11))} UTC`;
+
 export default function ForecastChart({ data, station, model }: {
   data: ForecastData; station: StationForecast; model: "icon_ch1" | "icon_ch2";
 }) {
@@ -12,7 +14,7 @@ export default function ForecastChart({ data, station, model }: {
   const [members, setMembers] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const runs = [...new Set(data.series.filter(s => s.model === model).map(s => s.run))].sort();
-  const runLabel = (run: string) => `${run.slice(6, 8)} ${new Date(`${run.slice(0, 4)}-${run.slice(4, 6)}-01`).toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} ${run.slice(9, 11)}:${run.slice(11, 13)} UTC`;
+
 
   useEffect(() => {
     const element = container.current;
@@ -40,7 +42,7 @@ export default function ForecastChart({ data, station, model }: {
           traces.push({
             type: "scatter", mode: "lines", name: control ? "Control" : series.member.replace("member_", "Member "),
             x: forecastRows.map(row => row.time.replace(/Z$/, "")), y: forecastRows.map(row => row.values[index]),
-            connectgaps: false, legendgroup: series.run, legendgrouptitle: { text: run },
+            connectgaps: false, legendgroup: series.run, legendgrouptitle: { text: runLabel(series.run) },
             line: { color: latest ? "#2563eb" : "#9ca3af", width: control ? 3.2 : 1.4 }, opacity: control ? 1 : 0.5,
             hovertemplate: `${control ? "Control" : series.member.replace("member_", "Member ")} · ${run}<br>%{y:.1f} W/m²<extra></extra>`,
           });
