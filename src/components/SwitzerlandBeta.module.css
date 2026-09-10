@@ -1,0 +1,10 @@
+.mapCard { position: relative; overflow: hidden; border: 1px solid #ffffff14; border-radius: 18px; background: radial-gradient(ellipse at 50% 30%, #183144 0%, #0d1d2b 70%); }
+.map { display: block; width: 100%; height: clamp(290px, 47vh, 550px); padding: 20px 8px 0; }
+.station { cursor: pointer; outline: none; }
+.dot, .halo { transition: r 160ms ease, opacity 160ms ease; }
+.station:hover .dot, .station:focus-visible .dot { r: 9; }
+.station:hover .halo, .station:focus-visible .halo, .station[aria-pressed="true"] .halo { r: 20; opacity: 0.23; }
+.station:focus-visible .dot { stroke: white; stroke-width: 3; }
+.chartGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 700px) { .chartGrid { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .dot, .halo { transition: none; } }

@@ -3,8 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+
+const SwitzerlandBeta = dynamic(() => import("@/components/SwitzerlandBeta"), {
+  ssr: false,
+  loading: () => <p className="p-10 text-slate-400">Loading station explorer…</p>,
+});
 
 const DASHBOARDS = {
   "imbalance-ch": {
@@ -14,6 +20,10 @@ const DASHBOARDS = {
   "icon-forecast": {
     label: "ICON forecast",
     description: "ICON weather forecast dashboard",
+  },
+  "switzerland-beta": {
+    label: "Switzerland map — Beta",
+    description: "Station forecasts · CSV test dataset",
   },
 } as const;
 
@@ -91,6 +101,8 @@ export default function DashboardPage() {
     if (window.matchMedia("(max-width: 767px)").matches) {
       setSidebarOpen(false);
     }
+
+    if (dashboardId === "switzerland-beta") return;
 
     setDashboardLoading(dashboardId);
     setDashboardErrors((current) => ({ ...current, [dashboardId]: undefined }));
@@ -294,6 +306,7 @@ export default function DashboardPage() {
         </header>
 
         <div className="min-h-0 flex-1">
+          {activeView === "switzerland-beta" && <SwitzerlandBeta />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">
               <div className="max-w-md text-center">
