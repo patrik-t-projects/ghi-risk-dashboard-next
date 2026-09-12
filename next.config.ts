@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    "/api/forecast-beta": ["./test_data/icon_ghi_chz_all_members.csv"],
+    "/api/forecast-beta": ["./test_data/icon_ghi_all_stations_*.csv"],
     "/api/dashboard-html": ["./dashboard-html/**/*"],
   },
 };

@@ -6,7 +6,7 @@ import type { ForecastData, StationForecast } from "@/lib/forecastCsv";
 const runLabel = (run: string) => `${run.slice(6, 8)}.${run.slice(4, 6)}. ${Number(run.slice(9, 11))} UTC`;
 
 export default function ForecastChart({ data, station, model }: {
-  data: ForecastData; station: StationForecast; model: "icon_ch1" | "icon_ch2";
+  data: Pick<ForecastData, "series">; station: StationForecast; model: "icon_ch1" | "icon_ch2";
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);

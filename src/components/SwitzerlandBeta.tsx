@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type { ForecastData } from "@/lib/forecastCsv";
-import ForecastChart from "./ForecastChart";
+import type { ForecastOverview } from "@/lib/forecastCsv";
+import StationPlots from "./StationPlots";
 import styles from "./SwitzerlandBeta.module.css";
 
 type Point = [number, number];
@@ -13,7 +13,7 @@ const rings = (geometry: Geometry): Point[][] => geometry.type === "Polygon" ? g
 const project = ([longitude, latitude]: Point): Point => [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))];
 
 export default function SwitzerlandBeta() {
-  const [data, setData] = useState<ForecastData | null>(null);
+  const [data, setData] = useState<ForecastOverview | null>(null);
   const [cantons, setCantons] = useState<Cantons | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -58,7 +58,7 @@ export default function SwitzerlandBeta() {
   return <div className="h-[calc(100dvh-4rem)] overflow-y-auto p-4 sm:p-6">
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">Station explorer <span className="ml-2 rounded border border-cyan-400/25 px-1.5 py-0.5 tracking-normal">BETA</span></p><h2 className="text-2xl font-semibold tracking-tight">Switzerland · GHI forecasts</h2><p className="mt-2 text-sm text-slate-400">Select a station to explore its forecast and observations.</p></div>
-      <div className="text-right text-xs text-slate-400"><p className="text-slate-200">{dateLabel(data.start)} – {dateLabel(data.end)} {new Date(data.end).getUTCFullYear()}</p><p className="mt-1">Test dataset · {data.stations.length} station{data.stations.length === 1 ? "" : "s"} · UTC</p></div>
+      <div className="text-right text-xs text-slate-400"><p className="text-slate-200">{dateLabel(`${data.day}T00:00:00Z`)} {data.day.slice(0, 4)}</p><p className="mt-1">Daily test dataset · {data.stations.length} stations · UTC</p></div>
     </div>
     <section className={styles.mapCard} aria-label="Switzerland station map">
       <div className="absolute left-5 top-5 z-10 flex items-center gap-2 text-xs text-slate-300"><span className="h-2 w-2 rounded-full bg-red-500" />GHI weather stations</div>
@@ -67,17 +67,15 @@ export default function SwitzerlandBeta() {
         <g fill="url(#canton-fill)" stroke="#698598" strokeWidth="0.85" strokeLinejoin="round" fillRule="evenodd">
           {projection.paths.map(canton => <path key={canton.name} d={canton.path}><title>{canton.name}</title></path>)}
         </g>
-        {data.stations.map(s => { const [x, y] = projection.xy([s.longitude, s.latitude]); return <g key={s.id} transform={`translate(${x},${y})`} className={styles.station} role="button" tabIndex={0} aria-label={`${selected.includes(s.id) ? "Hide" : "Show"} ${s.name} (${s.id}) forecasts`} aria-pressed={selected.includes(s.id)} onClick={() => choose(s.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(s.id); } }}>
-          <title>{s.name} · {s.id}</title><circle r="22" fill="transparent" /><circle className={styles.halo} r="15" fill="#ef4444" opacity="0.12" /><circle className={styles.dot} r="6" fill="#ef4444" stroke="#fecaca" strokeWidth="1.8" />
-          <text x="16" y="-13" fill="#f8fafc" fontSize="14" fontWeight="600" paintOrder="stroke" stroke="#102332" strokeWidth="4">{s.name}</text>
+        {[...data.stations].sort((a, b) => Number(selected.includes(a.id)) - Number(selected.includes(b.id))).map(s => { const [x, y] = projection.xy([s.longitude, s.latitude]); return <g key={s.id} transform={`translate(${x},${y})`} className={styles.station} role="button" tabIndex={0} aria-label={`${selected.includes(s.id) ? "Hide" : "Show"} ${s.name} (${s.id}) forecasts`} aria-pressed={selected.includes(s.id)} onClick={() => choose(s.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(s.id); } }}>
+          <title>{s.name} · {s.id}</title><circle r="8" fill="transparent" /><circle className={styles.halo} r="10" fill="#ef4444" opacity="0.12" pointerEvents="none" /><circle className={styles.dot} r="4.5" fill="#ef4444" stroke="#fecaca" strokeWidth="1.4" />
+          <text className={styles.stationLabel} x="12" y="-10" fill="#f8fafc" fontSize="13" fontWeight="600" paintOrder="stroke" stroke="#102332" strokeWidth="4">{s.name}</text>
         </g>; })}
       </svg>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-5 py-3 text-[10px] text-slate-500"><span>26 cantons · Switzerland</span><a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer" className="hover:text-slate-300">Boundaries: © swisstopo · geoBoundaries (2022)</a></div>
     </section>
-    {selectedStations.map(station => <div key={station.id} className="mt-7 pb-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{station.name} <span className="ml-2 text-sm font-normal text-slate-500">{station.id} · Forecast comparison</span></h2><p className="text-xs text-slate-400">Drag to zoom · Double-click to reset · Click legend to toggle</p></div>
-      <div className={styles.chartGrid}><ForecastChart data={data} station={station} model="icon_ch1" /><ForecastChart data={data} station={station} model="icon_ch2" /></div>
-    </div>)}
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><label htmlFor="station-picker" className="text-slate-400">Select a station</label><select id="station-picker" value="" onChange={e => { if (e.target.value) choose(e.target.value); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200"><option value="">Choose station…</option>{data.stations.map(s => <option key={s.id} value={s.id}>{s.name === s.id ? s.id : `${s.name} (${s.id})`}{selected.includes(s.id) ? " — selected (hide)" : ""}</option>)}</select><span className="text-xs text-slate-500">{selected.length} selected · Hover for station labels</span></div>
+    {selectedStations.map(station => <StationPlots key={`${data.version}:${station.id}`} station={station} day={data.day} version={data.version} onClose={() => choose(station.id)} />)}
     {selectedStations.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Click a red station marker to open its plots. Click again to hide them.</div>}
   </div>;
 }
