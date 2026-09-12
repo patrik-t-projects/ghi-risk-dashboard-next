@@ -1,23 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { resolveUploadTarget } from "@/lib/uploadTargets";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const DASHBOARD_BUCKET = "dashboard-html";
-
-const UPLOAD_TARGETS = {
-  "imbalance-ch": {
-    path: "imbalance_dashboard.html",
-    contentType: "text/html; charset=utf-8",
-  },
-  "icon-forecast": {
-    path: "icon_forecast.html",
-    contentType: "text/html; charset=utf-8",
-  },
-} as const;
-
-type UploadTarget = keyof typeof UPLOAD_TARGETS;
 
 function hasValidUploadToken(request: Request, expectedToken: string) {
   const authorization = request.headers.get("authorization");
@@ -60,14 +46,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const dashboardId = new URL(request.url).searchParams.get(
-    "dashboard",
-  ) as UploadTarget | null;
-  const target = dashboardId ? UPLOAD_TARGETS[dashboardId] : null;
+  const params = new URL(request.url).searchParams;
+  const dashboardId = params.get("dashboard");
+  const target = resolveUploadTarget(dashboardId, params.get("date"));
 
   if (!target) {
     return Response.json(
-      { error: "Unknown dashboard." },
+      { error: "Invalid upload target. Daily forecasts require a valid date in YYYY-MM-DD format." },
       {
         status: 400,
         headers: { "Cache-Control": "no-store" },
@@ -84,14 +69,14 @@ export async function POST(request: Request) {
   });
 
   const { data, error } = await supabase.storage
-    .from(DASHBOARD_BUCKET)
+    .from(target.bucket)
     .createSignedUploadUrl(target.path, { upsert: true });
 
   if (error || !data) {
-    console.error("Could not create a signed dashboard upload URL:", error);
+    console.error("Could not authorize storage upload", { bucket: target.bucket, path: target.path });
 
     return Response.json(
-      { error: "Could not authorize the dashboard upload." },
+      { error: "Could not authorize the upload. Check that the destination bucket exists." },
       {
         status: 502,
         headers: { "Cache-Control": "no-store" },
@@ -102,6 +87,7 @@ export async function POST(request: Request) {
   return Response.json(
     {
       dashboard: dashboardId,
+      bucket: target.bucket,
       path: target.path,
       uploadUrl: data.signedUrl,
       method: "PUT",

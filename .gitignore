@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+__pycache__/
 
 # next.js
 /.next/
@@ -43,3 +44,6 @@ next-env.d.ts
 
 # recovery file (sensitive)
 recovery-codes.txt
+
+# Private Pi upload token (also ignored if accidentally copied into the repo)
+upload-token.txt

@@ -23,7 +23,7 @@ const DASHBOARDS = {
   },
   "switzerland-beta": {
     label: "Switzerland map — Beta",
-    description: "Station forecasts · CSV test dataset",
+    description: "Station forecasts · Today and historical days",
   },
 } as const;
 
@@ -39,6 +39,7 @@ export default function DashboardPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const [activeView, setActiveView] = useState<DashboardView>("empty");
+  const [betaMode, setBetaMode] = useState<"today" | "history">("today");
   const [dashboardHtml, setDashboardHtml] = useState<
     Partial<Record<DashboardId, string>>
   >({});
@@ -230,8 +231,8 @@ export default function DashboardPage() {
             const isActive = activeView === dashboardId;
 
             return (
+              <div key={dashboardId}>
               <button
-                key={dashboardId}
                 type="button"
                 onClick={() => openDashboard(dashboardId)}
                 aria-current={isActive ? "page" : undefined}
@@ -250,6 +251,12 @@ export default function DashboardPage() {
                 />
                 <span className="font-medium">{dashboard.label}</span>
               </button>
+              {dashboardId === "switzerland-beta" && isActive && <div className="ml-7 mt-1 space-y-1 border-l border-white/10 pl-3">
+                {(["today", "history"] as const).map(mode => <button key={mode} type="button" aria-current={betaMode === mode ? "page" : undefined}
+                  onClick={() => { setBetaMode(mode); if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false); }}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${betaMode === mode ? "bg-cyan-400/10 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>{mode === "today" ? "Today" : "Historical"}</button>)}
+              </div>}
+              </div>
             );
           })}
         </nav>
@@ -306,7 +313,7 @@ export default function DashboardPage() {
         </header>
 
         <div className="min-h-0 flex-1">
-          {activeView === "switzerland-beta" && <SwitzerlandBeta />}
+          {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode} />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">
               <div className="max-w-md text-center">
