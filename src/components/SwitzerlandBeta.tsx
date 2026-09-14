@@ -8,7 +8,6 @@ import styles from "./SwitzerlandBeta.module.css";
 type Point = [number, number];
 type Geometry = { type: "Polygon"; coordinates: Point[][] } | { type: "MultiPolygon"; coordinates: Point[][][] };
 type Cantons = { features: { properties: { shapeName: string }; geometry: Geometry }[] };
-type Lakes = { features: { properties: { name: string }; geometry: Geometry }[] };
 const rings = (geometry: Geometry): Point[][] => geometry.type === "Polygon" ? geometry.coordinates : geometry.coordinates.flat();
 const project = ([longitude, latitude]: Point): Point => [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))];
 export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" | "history"; onModeChange: (mode: "today" | "history") => void }) {
@@ -16,7 +15,6 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
   const [catalog, setCatalog] = useState<ForecastCatalog | null>(null);
   const [data, setData] = useState<ForecastOverview | null>(null);
   const [cantons, setCantons] = useState<Cantons | null>(null);
-  const [lakes, setLakes] = useState<Lakes | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [catalogError, setCatalogError] = useState("");
@@ -62,11 +60,10 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
   }, [attempt]);
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all(["/maps/switzerland-cantons.geojson", "/maps/switzerland-lakes.geojson"].map(async path => {
-      const response = await fetch(path, { signal: controller.signal });
+    fetch("/maps/switzerland-cantons.geojson", { signal: controller.signal }).then(async response => {
       if (!response.ok) throw new Error("Could not load the Switzerland map.");
       return response.json();
-    })).then(([cantonData, lakeData]) => { if (!controller.signal.aborted) { setCantons(cantonData); setLakes(lakeData); setMapError(""); } })
+    }).then(cantonData => { if (!controller.signal.aborted) { setCantons(cantonData); setMapError(""); } })
       .catch(() => { if (!controller.signal.aborted) setMapError("Could not load the Switzerland map."); });
     return () => controller.abort();
   }, [attempt]);
@@ -102,7 +99,7 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
     void load(); return () => controller.abort();
   }, [fileKey, catalogReady, activeFrom, activeTo, attempt]);
   const projection = useMemo(() => {
-    if (!cantons || !lakes) return null;
+    if (!cantons) return null;
     const points = cantons.features.flatMap(feature => rings(feature.geometry).flat().map(project));
     const xs = points.map(p => p[0]); const ys = points.map(p => p[1]);
     const minX = Math.min(...xs); const minY = Math.min(...ys);
@@ -112,8 +109,8 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
     const makePath = (geometry: Geometry) => rings(geometry).map(ring => ring.map((point, index) => `${index ? "L" : "M"}${xy(point).map(n => n.toFixed(2)).join(",")}`).join(" ") + "Z").join(" ");
     return { xy, paths: cantons.features.map(feature => ({ name: feature.properties.shapeName,
       path: makePath(feature.geometry),
-    })), lakePaths: lakes.features.map(feature => ({ name: feature.properties.name, path: makePath(feature.geometry) })) };
-  }, [cantons, lakes]);
+    })) };
+  }, [cantons]);
   const selectedStations = selected.flatMap(id => data?.stations.filter(s => s.id === id) ?? []);
   function choose(id: string) {
     setSelected(current => current.includes(id) ? current.filter(stationId => stationId !== id) : [...current, id]);
@@ -201,15 +198,12 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
         <g fill="url(#canton-fill)" stroke="#698598" strokeWidth="0.85" strokeLinejoin="round" fillRule="evenodd">
           {projection?.paths.map(canton => <path key={canton.name} d={canton.path}><title>{canton.name}</title></path>)}
         </g>
-        <g fill="#1688b5" fillOpacity="0.72" stroke="#74ccec" strokeWidth="0.75" strokeLinejoin="round" fillRule="evenodd">
-          {projection?.lakePaths.map(lake => <path key={`${lake.name}-${lake.path.slice(0, 24)}`} d={lake.path}><title>{lake.name}</title></path>)}
-        </g>
         {projection && [...(data?.stations ?? [])].sort((a, b) => Number(selected.includes(a.id)) - Number(selected.includes(b.id))).map(s => { const [x, y] = projection.xy([s.longitude, s.latitude]); return <g key={s.id} data-station-marker transform={`translate(${x},${y})`} className={styles.station} role="button" tabIndex={0} aria-label={`${selected.includes(s.id) ? "Hide" : "Show"} ${s.id} forecasts`} aria-pressed={selected.includes(s.id)} onClick={() => choose(s.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(s.id); } }}>
           <circle r="8" fill="transparent" /><circle className={styles.halo} r="10" fill="#ef4444" opacity="0.12" pointerEvents="none" /><circle className={styles.dot} r="4.5" fill="#ef4444" stroke="#fecaca" strokeWidth="1.4" />
           <text className={styles.stationLabel} x="12" y="-10" fill="#f8fafc" fontSize="13" fontWeight="600" paintOrder="stroke" stroke="#102332" strokeWidth="4">{s.id}</text>
         </g>; })}
       </svg>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-5 py-3 text-[10px] text-slate-500"><span>26 cantons · Switzerland</span><span><a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer" className="hover:text-slate-300">Boundaries: © swisstopo · geoBoundaries (2022)</a><span className="mx-2">·</span><a href="https://www.swisstopo.admin.ch/en/landscape-model-swisstlmregio" target="_blank" rel="noreferrer" className="hover:text-slate-300">Lakes: © swisstopo · swissTLMRegio (2025)</a></span></div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-5 py-3 text-[10px] text-slate-500"><span>26 cantons · Switzerland</span><a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer" className="hover:text-slate-300">Boundaries: © swisstopo · geoBoundaries (2022)</a></div>
     </section>
     <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><label htmlFor="station-picker" className="text-slate-400">Select a station</label><select id="station-picker" value="" onChange={e => { if (e.target.value) choose(e.target.value); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200"><option value="">Choose station…</option>{data?.stations.map(s => <option key={s.id} value={s.id}>{s.id}{selected.includes(s.id) ? " — selected (hide)" : ""}</option>)}</select><span className="text-xs text-slate-500">{selected.length} selected · Hover for station labels</span><label htmlFor="forecast-export" className="ml-auto text-slate-400">Download</label><select id="forecast-export" value="" disabled={!selected.length || Boolean(exporting)} onChange={event => { const format = event.target.value as "png" | "pdf" | "csv"; if (format) void exportSelection(format); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"><option value="">{exporting ? `Creating ${exporting.toUpperCase()}…` : "Choose format…"}</option><option value="png">PNG — selected plots</option><option value="pdf">PDF — selected plots</option><option value="csv">CSV — selected stations</option></select></div>
     {exportError && <div role="alert" className="mt-3 text-sm text-amber-200">{exportError}</div>}
