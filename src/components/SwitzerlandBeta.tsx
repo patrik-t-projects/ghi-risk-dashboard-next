@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { downloadForecastCsv, fetchForecast, ForecastRequestError } from "@/lib/forecastClient";
-import { exportPlotsPng, saveDownload } from "@/lib/forecastExport";
+import { exportPlotsPdf, exportPlotsPng, saveDownload } from "@/lib/forecastExport";
 import type { ForecastOverview, ForecastCatalog, ForecastFile } from "@/lib/forecastCsv";
 import StationPlots from "./StationPlots";
 import styles from "./SwitzerlandBeta.module.css";
@@ -153,7 +153,7 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
   function endMapDrag(event: ReactPointerEvent<SVGSVGElement>) {
     if (mapDrag.current?.pointer === event.pointerId) mapDrag.current = null;
   }
-  async function exportSelection(format: "png" | "csv") {
+  async function exportSelection(format: "png" | "pdf" | "csv") {
     if (!data || !selected.length) return;
     setExporting(format); setExportError("");
     const exportFiles: ForecastFile[] = JSON.parse(data.version);
@@ -161,6 +161,8 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
     try {
       if (format === "png") {
         await exportPlotsPng([...document.querySelectorAll<HTMLElement>("[data-export-chart]")], selected, exportFrom, exportTo);
+      } else if (format === "pdf") {
+        await exportPlotsPdf([...document.querySelectorAll<HTMLElement>("[data-export-chart]")], selected, exportFrom, exportTo);
       } else {
         const blob = await downloadForecastCsv(exportFiles, selected);
         const period = exportFrom === exportTo ? exportFrom : `${exportFrom}_to_${exportTo}`;
@@ -209,7 +211,7 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
       </svg>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-5 py-3 text-[10px] text-slate-500"><span>26 cantons · Switzerland</span><span><a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer" className="hover:text-slate-300">Boundaries: © swisstopo · geoBoundaries (2022)</a><span className="mx-2">·</span><a href="https://github.com/ZHB/switzerland-geojson" target="_blank" rel="noreferrer" className="hover:text-slate-300">Lakes: ZHB Switzerland GeoJSON</a></span></div>
     </section>
-    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><label htmlFor="station-picker" className="text-slate-400">Select a station</label><select id="station-picker" value="" onChange={e => { if (e.target.value) choose(e.target.value); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200"><option value="">Choose station…</option>{data?.stations.map(s => <option key={s.id} value={s.id}>{s.id}{selected.includes(s.id) ? " — selected (hide)" : ""}</option>)}</select><span className="text-xs text-slate-500">{selected.length} selected · Hover for station labels</span><label htmlFor="forecast-export" className="ml-auto text-slate-400">Download</label><select id="forecast-export" value="" disabled={!selected.length || Boolean(exporting)} onChange={event => { const format = event.target.value as "png" | "csv"; if (format) void exportSelection(format); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"><option value="">{exporting ? `Creating ${exporting.toUpperCase()}…` : "Choose format…"}</option><option value="png">PNG — selected plots</option><option value="csv">CSV — selected stations</option></select></div>
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><label htmlFor="station-picker" className="text-slate-400">Select a station</label><select id="station-picker" value="" onChange={e => { if (e.target.value) choose(e.target.value); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200"><option value="">Choose station…</option>{data?.stations.map(s => <option key={s.id} value={s.id}>{s.id}{selected.includes(s.id) ? " — selected (hide)" : ""}</option>)}</select><span className="text-xs text-slate-500">{selected.length} selected · Hover for station labels</span><label htmlFor="forecast-export" className="ml-auto text-slate-400">Download</label><select id="forecast-export" value="" disabled={!selected.length || Boolean(exporting)} onChange={event => { const format = event.target.value as "png" | "pdf" | "csv"; if (format) void exportSelection(format); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"><option value="">{exporting ? `Creating ${exporting.toUpperCase()}…` : "Choose format…"}</option><option value="png">PNG — selected plots</option><option value="pdf">PDF — selected plots</option><option value="csv">CSV — selected stations</option></select></div>
     {exportError && <div role="alert" className="mt-3 text-sm text-amber-200">{exportError}</div>}
     {data && selectedStations.map(station => <StationPlots key={station.id} station={station} files={JSON.parse(data.version)} from={data.start.slice(0, 10)} to={data.end.slice(0, 10)} onClose={() => choose(station.id)} onRefresh={() => setAttempt(n => n + 1)} />)}
     {selectedStations.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Click a red station marker to open its plots. Click again to hide them.</div>}

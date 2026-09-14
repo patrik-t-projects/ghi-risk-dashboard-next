@@ -20,6 +20,12 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     return () => { if (element) void import("plotly.js/dist/plotly-basic.min.js").then(({ default: plotly }) => plotly.purge(element)); };
   }, []);
   const runs = [...new Set(data.series.filter(s => s.model === model).map(s => s.run))].sort();
+  const title = `${model === "icon_ch1" ? "ICON1" : "ICON2"} · Global horizontal irradiance`;
+  const exportLegend = JSON.stringify([
+    ...runs.map((run, index) => ({ label: runLabel(run), color: index === runs.length - 1 ? "#2563eb" : "#9ca3af", checked: !hiddenRuns.includes(run) })),
+    { label: "Members", checked: members },
+    { label: "Actual GHI", color: "#16a34a", checked: showActual },
+  ]);
 
 
   useEffect(() => {
@@ -94,6 +100,6 @@ export default function ForecastChart({ data, station, model, period = "" }: {
         <label className="flex cursor-pointer items-center gap-2 text-green-600"><input type="checkbox" checked={showActual} onChange={e => setShowActual(e.target.checked)} /><span>━ Actual GHI</span></label>
       </div>
     </div>
-    {error ? <div role="alert" className="p-8">Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} data-export-chart data-export-station={station.id} data-export-model={model} className="h-[520px] w-full" aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
+    {error ? <div role="alert" className="p-8">Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} data-export-chart data-export-station={station.id} data-export-model={model} data-export-title={title} data-export-legend={exportLegend} className="h-[520px] w-full" aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
   </section>;
 }

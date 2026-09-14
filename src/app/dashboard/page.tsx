@@ -17,10 +17,6 @@ const DASHBOARDS = {
     label: "Imbalance CH model",
     description: "Switzerland imbalance dashboard",
   },
-  "icon-forecast": {
-    label: "ICON forecast",
-    description: "ICON weather forecast dashboard",
-  },
   "switzerland-beta": {
     label: "Switzerland map — Beta",
     description: "Station forecasts · Today and historical days",
@@ -220,8 +216,8 @@ export default function DashboardPage() {
         } w-72 shrink-0 flex-col border-r border-white/10 bg-[#0b1722] p-4 max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:shadow-2xl`}
       >
         <div className="border-b border-white/10 px-3 pb-5 pt-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-400">
-            GHI Risk
+          <p className="text-[11px] font-semibold tracking-[0.22em] text-cyan-400">
+            GHI Dashboard
           </p>
           <h1 className="mt-2 text-lg font-semibold">Dashboard models</h1>
         </div>
