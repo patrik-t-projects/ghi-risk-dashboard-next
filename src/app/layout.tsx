@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GHI Risk Dashboard",
-  description: "Authenticated workspace for Swiss energy risk models.",
+  title: "GHI Dashboard",
+  description: "Authenticated workspace for Swiss energy and weather models.",
 };
 
 export default function RootLayout({

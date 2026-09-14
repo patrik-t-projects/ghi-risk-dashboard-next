@@ -45,7 +45,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-8 shadow-xl">
-        <h1 className="text-3xl font-semibold mb-2">GHI Risk Dashboard</h1>
+        <h1 className="text-3xl font-semibold mb-2">GHI Dashboard</h1>
         <p className="text-slate-400 mb-8">{signup ? "Create your account." : "Sign in to access the dashboard."}</p>
         <form onSubmit={submit}>
           <label htmlFor="identifier" className="block text-sm text-slate-300 mb-2">{signup ? "Email" : "Username or email"}</label>
