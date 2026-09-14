@@ -30,3 +30,12 @@ export function seriesPoints(segments: ForecastSegments, key?: string): { x: str
   }
   return { x, y };
 }
+
+export function observationHoverPoints(segments: ForecastSegments) {
+  const line = seriesPoints(segments);
+  return { line, anchors: {
+    x: line.x,
+    y: line.y.map(value => value ?? 0),
+    hovertemplate: line.y.map(value => value === null ? "<extra></extra>" : "Actual GHI: %{y:.1f} W/m²<extra></extra>"),
+  } };
+}

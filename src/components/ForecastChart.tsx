@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
-import { seriesPoints } from "@/lib/forecastHistory";
+import { observationHoverPoints, seriesPoints } from "@/lib/forecastHistory";
 
 const runLabel = (run: string) => `${run.slice(6, 8)}.${run.slice(4, 6)}. ${Number(run.slice(9, 11))} UTC`;
 
@@ -51,10 +51,16 @@ export default function ForecastChart({ data, station, model, period = "" }: {
             hovertemplate: `${control ? "Control" : series.member.replace("member_", "Member ")} · ${run}<br>%{y:.1f} W/m²<extra></extra>`,
           });
         });
+        const actual = observationHoverPoints(segments);
         traces.push({ type: "scatter", mode: "lines", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...seriesPoints(segments),
+          ...actual.line, hoverinfo: "skip",
           line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
-          hovertemplate: "Actual GHI: %{y:.1f} W/m²<extra></extra>" });
+        });
+        // Invisible points at every forecast timestamp prevent unified hover from
+        // snapping to an older observation when the exact timestamp is unknown.
+        traces.push({ type: "scatter", mode: "markers", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
+          ...actual.anchors, marker: { opacity: 0, size: 1 },
+        });
         await Plotly.react(element, traces, {
           autosize: true, height: 520, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
           margin: { l: 62, r: 18, t: 20, b: 105 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },

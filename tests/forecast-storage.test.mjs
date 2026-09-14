@@ -76,4 +76,9 @@ test('overlapping daily endpoints merge once; missing values remain gaps', () =>
   assert.equal(points.x.length, 1);
   const copy = { ...segment, rows: [...segment.rows, { time: '2026-09-12T00:30:00Z', measured: null, values: [null, null] }] };
   assert.equal(history.seriesPoints([copy], data.series[0].key).y[1], null);
+  const actual = history.observationHoverPoints([copy]);
+  assert.deepEqual(Array.from(actual.line.y), [0, null]);
+  assert.deepEqual(Array.from(actual.anchors.y), [0, 0]);
+  assert.match(actual.anchors.hovertemplate[0], /Actual GHI/);
+  assert.equal(actual.anchors.hovertemplate[1], '<extra></extra>');
 });
