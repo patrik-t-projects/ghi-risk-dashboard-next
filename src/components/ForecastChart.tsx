@@ -13,6 +13,7 @@ export default function ForecastChart({ data, station, model, period = "" }: {
   const [error, setError] = useState(false);
   const [hiddenRuns, setHiddenRuns] = useState<string[]>([]);
   const [members, setMembers] = useState(false);
+  const [showActual, setShowActual] = useState(true);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const element = container.current;
@@ -35,31 +36,33 @@ export default function ForecastChart({ data, station, model, period = "" }: {
         const traces: Record<string, unknown>[] = [];
         const segments = data.segments ?? [{ series: data.series, rows: station.rows }];
         data.series.forEach((series) => {
-          if (series.model !== model || hiddenRuns.includes(series.run) || (!members && series.member !== "control")) return;
+          if (series.model !== model) return;
           const latest = series.run === modelRuns[modelRuns.length - 1];
           const control = series.member === "control";
+          const runVisible = !hiddenRuns.includes(series.run);
           const date = `${series.run.slice(0, 4)}-${series.run.slice(4, 6)}-${series.run.slice(6, 8)}`;
           const run = `${date} ${series.run.slice(9, 11)}:${series.run.slice(11, 13)} UTC`;
           traces.push({
             type: "scatter", mode: "lines", name: control ? "Control" : series.member.replace("member_", "Member "),
             ...seriesPoints(segments, series.key),
             connectgaps: false, legendgroup: series.run, legendgrouptitle: { text: runLabel(series.run) },
+            showlegend: !control, visible: control ? runVisible : runVisible && members ? true : "legendonly",
             line: { color: latest ? "#2563eb" : "#9ca3af", width: control ? 3.2 : 1.4 }, opacity: control ? 1 : 0.5,
             hovertemplate: `${control ? "Control" : series.member.replace("member_", "Member ")} · ${run}<br>%{y:.1f} W/m²<extra></extra>`,
           });
         });
-        traces.push({ type: "scatter", mode: "lines", name: "Actual GHI", legendgroup: "actual",
+        traces.push({ type: "scatter", mode: "lines", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
           ...seriesPoints(segments),
           line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
           hovertemplate: "Actual GHI: %{y:.1f} W/m²<extra></extra>" });
         await Plotly.react(element, traces, {
           autosize: true, height: 520, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
-          margin: { l: 62, r: 18, t: 20, b: 65 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },
+          margin: { l: 62, r: 18, t: 20, b: 105 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },
           xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", nticks: 7,
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
           yaxis: { title: { text: "GHI [W/m²]" }, rangemode: "tozero", gridcolor: "#e5e7eb" },
           hovermode: "x unified", uirevision: `${station.id}-${model}-${period}`, showlegend: true,
-          legend: { orientation: "h", y: -0.25, x: 0, maxheight: 0.25, groupclick: "toggleitem", font: { size: 10 } },
+          legend: { orientation: "h", y: -0.22, x: 0, maxheight: 58, groupclick: "toggleitem", font: { size: 9 } },
         }, { responsive: true, displaylogo: false, scrollZoom: false, toImageButtonOptions: { filename: `${station.id}-${model}-ghi`, scale: 2 } });
         if (disposed) return;
         observer = new ResizeObserver(() => {
@@ -71,7 +74,7 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     }
     void draw();
     return () => { disposed = true; observer?.disconnect(); cancelAnimationFrame(frame); };
-  }, [data, station, model, hiddenRuns, members, attempt, period]);
+  }, [data, station, model, hiddenRuns, members, showActual, attempt, period]);
 
   return <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
     <div className="border-b border-slate-100 px-5 py-4">
@@ -82,9 +85,9 @@ export default function ForecastChart({ data, station, model, period = "" }: {
           <span className="h-0.5 w-4" style={{ background: index === runs.length - 1 ? "#2563eb" : "#9ca3af" }} />{runLabel(run)}
         </label>)}
         <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={members} onChange={e => setMembers(e.target.checked)} />Members</label>
-        <span className="text-green-600">━ Actual GHI</span>
+        <label className="flex cursor-pointer items-center gap-2 text-green-600"><input type="checkbox" checked={showActual} onChange={e => setShowActual(e.target.checked)} /><span>━ Actual GHI</span></label>
       </div>
     </div>
-    {error ? <div role="alert" className="p-8">Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} className="h-[520px] w-full" aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
+    {error ? <div role="alert" className="p-8">Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} data-export-chart data-export-station={station.id} data-export-model={model} className="h-[520px] w-full" aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
   </section>;
 }

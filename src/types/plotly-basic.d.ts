@@ -1,6 +1,7 @@
 declare module "plotly.js/dist/plotly-basic.min.js" {
   const plotly: {
     react: (element: HTMLElement, data: Record<string, unknown>[], layout: Record<string, unknown>, config: Record<string, unknown>) => Promise<unknown>;
+    toImage: (element: HTMLElement, options: Record<string, unknown>) => Promise<string>;
     purge: (element: HTMLElement) => void;
     Plots: { resize: (element: HTMLElement) => void };
   };

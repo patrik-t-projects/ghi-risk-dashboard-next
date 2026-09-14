@@ -1,5 +1,6 @@
 .mapCard { position: relative; overflow: hidden; border: 1px solid #ffffff14; border-radius: 18px; background: radial-gradient(ellipse at 50% 30%, #183144 0%, #0d1d2b 70%); }
-.map { display: block; width: 100%; height: clamp(290px, 47vh, 550px); padding: 20px 8px 0; }
+.map { display: block; width: 100%; height: clamp(290px, 47vh, 550px); cursor: grab; touch-action: none; user-select: none; }
+.map:active { cursor: grabbing; }
 .station { cursor: pointer; outline: none; }
 .dot, .halo { transition: r 160ms ease, opacity 160ms ease; }
 .station:hover .dot, .station:focus-visible .dot { r: 7; }

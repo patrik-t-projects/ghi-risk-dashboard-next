@@ -33,6 +33,21 @@ export function readCsv(text: string): string[][] {
   return records;
 }
 
+const csvField = (value: string) => /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+export function writeCsv(records: string[][]): string {
+  return records.map(row => row.map(csvField).join(",")).join("\r\n") + "\r\n";
+}
+
+export function filterForecastCsv(text: string, stationIds: ReadonlySet<string>): string {
+  const records = readCsv(text);
+  const header = records[0];
+  if (!header) throw new Error("The forecast CSV is empty.");
+  const stationIndex = header.indexOf("station_abbr");
+  if (stationIndex < 0) throw new Error("Missing CSV column: station_abbr");
+  return writeCsv([header, ...records.slice(1).filter(row => stationIds.has(row[stationIndex]?.trim()))]);
+}
+
 function parseRuntime(value: string): string {
   const match = /^(\d{2})\.(\d{2})\.(\d{4}) (\d{1,2}) UTC$/.exec(value);
   if (!match) throw new Error(`Invalid model runtime: ${value}`);

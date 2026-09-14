@@ -13,6 +13,7 @@ const context = { exports: {}, require: name => {
   if (name.endsWith('.module.css')) return { default: {} };
   if (name === './StationPlots') return { default: () => null };
   if (name === '@/lib/forecastClient') return {};
+  if (name === '@/lib/forecastExport') return {};
   throw Error(`Unexpected dependency: ${name}`);
 } };
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/SwitzerlandBeta.tsx', 'utf8'), {
@@ -24,7 +25,10 @@ for (const mode of ['today', 'history']) test(`${mode} controls and map render b
   assert.match(html, /Forecast period/);
   assert.match(html, /Auto-update: every minute/);
   assert.match(html, /Map of Switzerland with canton boundaries/);
+  assert.match(html, /Zoom map in/);
+  assert.match(html, /Choose format/);
   assert.match(html, /Checking uploaded forecasts/);
+  assert.doesNotMatch(html, /Supabase Storage/);
   if (mode === 'history') {
     assert.match(html, /From \(UTC day\)/);
     assert.match(html, /To \(UTC day\)/);

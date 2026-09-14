@@ -38,7 +38,7 @@ export async function listForecastFiles(fresh = false): Promise<ForecastFile[]> 
   catalog = { expires: Date.now() + 15000, value };
   try { return await value; } catch (error) { if (catalog?.value === value) catalog = undefined; throw error; }
 }
-const snapshots = new Map<string, Promise<{ day: string; version: string; data: ForecastData }>>();
+const snapshots = new Map<string, Promise<{ day: string; version: string; data: ForecastData; text: string }>>();
 export async function loadDailyForecast(day: string, version?: string) {
   if (!validDay(day)) throw new ForecastSourceError("Invalid forecast date.", 400);
   const file = (await listForecastFiles()).find(item => item.day === day);
@@ -52,12 +52,12 @@ export async function loadDailyForecast(day: string, version?: string) {
     if (error || !blob) throw new ForecastSourceError(`Could not download the CSV for ${day}.`);
     const current = (await listForecastFiles(true)).find(item => item.day === day);
     if (current?.version !== file.version) throw new ForecastSourceError("The file changed during download. Refreshing the forecast…", 409);
-    let data: ForecastData;
-    try { data = parseForecastCsv(await blob.text()); }
+    let data: ForecastData; const text = await blob.text();
+    try { data = parseForecastCsv(text); }
     catch { throw new ForecastSourceError(`The CSV for ${day} does not match the expected daily GHI format.`, 422); }
     const start = Date.parse(`${day}T00:00:00Z`); const end = start + 86400000;
     if (Date.parse(data.start) <= start || Date.parse(data.end) > end) throw new ForecastSourceError(`CSV timestamps do not match the data day ${day}.`, 422);
-    return { day, version: file.version, data };
+    return { day, version: file.version, data, text };
   })();
   snapshots.set(key, value);
   while (snapshots.size > 3) snapshots.delete(snapshots.keys().next().value!);

@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(fs.readFileSync('src/lib/forecastCsv.ts', 'u
 }).outputText;
 const context = { exports: {} };
 vm.runInNewContext(compiled, context);
-const { parseForecastCsv, readCsv } = context.exports;
+const { filterForecastCsv, parseForecastCsv, readCsv } = context.exports;
 const csv = fs.readFileSync('test_data/icon_ghi_all_stations_2026-09-12.csv', 'utf8');
 const data = parseForecastCsv(csv);
 
@@ -80,4 +80,13 @@ test('overview and individual station payloads stay small', () => {
   assert.ok(size < 25000);
   assert.ok(maximum < 250000);
   console.log(`Overview: ${size} bytes; largest station payload: ${maximum} bytes`);
+});
+
+test('CSV export preserves the original columns and only selected station rows', () => {
+  const source = [header, first, second, first.replaceAll('CHZ', 'ABO')].join('\n');
+  const [filteredHeader, ...filtered] = readCsv(filterForecastCsv(source, new Set(['CHZ'])));
+  assert.deepEqual(Array.from(filteredHeader), header.split(','));
+  assert.equal(filtered.length, 2);
+  assert.ok(filtered.every(row => row[1] === 'CHZ'));
+  assert.equal(filtered[0][2], '47.18,8.46');
 });
