@@ -216,6 +216,17 @@ export default function DashboardPage() {
         } w-72 shrink-0 flex-col border-r border-white/10 bg-[#0b1722] p-4 max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:shadow-2xl`}
       >
         <div className="border-b border-white/10 px-3 pb-5 pt-2">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Hide menu"
+              title="Hide menu"
+              className="flex h-8 min-w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+            >
+              {"<<"}
+            </button>
+          </div>
           <p className="text-[11px] font-semibold tracking-[0.22em] text-cyan-400">
             GHI Dashboard
           </p>
@@ -278,14 +289,16 @@ export default function DashboardPage() {
       >
         <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#09131d] px-3 py-2 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            {!fullscreenActive && (
+            {!fullscreenActive && !sidebarOpen && (
               <button
                 type="button"
-                onClick={() => setSidebarOpen((current) => !current)}
+                onClick={() => setSidebarOpen(true)}
                 aria-expanded={sidebarOpen}
-                className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+                aria-label="Show menu"
+                title="Show menu"
+                className="flex h-8 min-w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
               >
-                {sidebarOpen ? "Hide menu" : "Show menu"}
+                {">>"}
               </button>
             )}
             <div className="min-w-0">
