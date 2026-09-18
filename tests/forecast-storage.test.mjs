@@ -16,9 +16,9 @@ const parser = compile('src/lib/forecastCsv.ts');
 const history = compile('src/lib/forecastHistory.ts');
 const csv = (day, value = 1) => 'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1\n' +
   `${day}T00:15:00Z,CHZ,"47.18,8.46",ICON1,12.09.2026 00 UTC,0,${value},2\n`;
-function mockSource() {
+function mockSource(initialContent = csv('2026-09-12')) {
   let entry = { name: 'icon_ghi_all_stations_2026-09-12.csv', id: 'file-1', updated_at: 'v1', metadata: { size: 100, eTag: '1' } };
-  let content = csv('2026-09-12'); let downloads = 0; let race = false;
+  let content = initialContent; let downloads = 0; let race = false;
   const storage = { list: async () => ({ data: entry ? [entry] : [], error: null }),
     download: async (path, options, parameters) => {
       assert.equal(path, 'daily/icon_ghi_all_stations_2026-09-12.csv');
@@ -56,6 +56,23 @@ test('empty storage has no local fallback; upload races are rejected', async () 
   await assert.rejects(empty.source.loadDailyForecast('2026-09-12'), error => error.status === 404);
   const race = mockSource(); const file = (await race.source.listForecastFiles())[0]; race.race();
   await assert.rejects(race.source.loadDailyForecast(file.day, file.version), error => error.status === 409);
+});
+test('daily timestamps use calendar-day boundaries in UTC', async () => {
+  const header = 'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1\n';
+  const row = timestamp => `${timestamp},CHZ,"47.18,8.46",ICON1,12.09.2026 00 UTC,0,1,2\n`;
+  const valid = mockSource(header + row('2026-09-12T00:00:00Z') + row('2026-09-12T23:45:00Z'));
+  const validFile = (await valid.source.listForecastFiles())[0];
+  const result = await valid.source.loadDailyForecast(validFile.day, validFile.version);
+  assert.equal(result.data.start, '2026-09-12T00:00:00Z');
+  assert.equal(result.data.end, '2026-09-12T23:45:00Z');
+
+  const previousDay = mockSource(header + row('2026-09-11T23:45:00Z'));
+  const previousFile = (await previousDay.source.listForecastFiles())[0];
+  await assert.rejects(previousDay.source.loadDailyForecast(previousFile.day, previousFile.version), error => error.status === 422);
+
+  const nextDay = mockSource(header + row('2026-09-13T00:00:00Z'));
+  const nextFile = (await nextDay.source.listForecastFiles())[0];
+  await assert.rejects(nextDay.source.loadDailyForecast(nextFile.day, nextFile.version), error => error.status === 422);
 });
 test('historical days retain series identity, observations and gaps without dense null matrices', () => {
   const detail = day => { const data = parser.parseForecastCsv(csv(day)); return { ...data, station: data.stations[0] }; };

@@ -56,7 +56,7 @@ export async function loadDailyForecast(day: string, version?: string) {
     try { data = parseForecastCsv(text); }
     catch { throw new ForecastSourceError(`The CSV for ${day} does not match the expected daily GHI format.`, 422); }
     const start = Date.parse(`${day}T00:00:00Z`); const end = start + 86400000;
-    if (Date.parse(data.start) <= start || Date.parse(data.end) > end) throw new ForecastSourceError(`CSV timestamps do not match the data day ${day}.`, 422);
+    if (Date.parse(data.start) < start || Date.parse(data.end) >= end) throw new ForecastSourceError(`CSV timestamps do not match the data day ${day}.`, 422);
     return { day, version: file.version, data, text };
   })();
   snapshots.set(key, value);
