@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
   if (!target) {
     return Response.json(
-      { error: "Invalid upload target. Daily forecasts require a valid date in YYYY-MM-DD format." },
+      { error: "Invalid upload target. Daily forecasts require a valid date; all other targets reject the date parameter." },
       {
         status: 400,
         headers: { "Cache-Control": "no-store" },

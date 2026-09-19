@@ -20,8 +20,9 @@ Generated dashboards can be uploaded without a Git commit or Vercel deployment.
 The uploader first requests a short-lived, path-restricted upload URL from
 `/api/dashboard-upload`, then sends the file directly to Supabase Storage. The
 authorization endpoint accepts the dashboard IDs `imbalance-ch`,
-`icon-forecast`, and the dated `forecast-daily` target; the caller must provide the server's `PI_UPLOAD_TOKEN` as a
-Bearer token.
+`icon-forecast`, the dated `forecast-daily` target, and the two Swissgrid CSV
+targets listed below. The caller must provide the server's `PI_UPLOAD_TOKEN` as
+a Bearer token.
 
 The included `scripts/upload_dashboard.py` uses only the Python standard
 library. Set `PI_UPLOAD_TOKEN` in the process environment and run, for example:
@@ -66,3 +67,27 @@ parsed daily snapshots keyed by Storage revision. Downloads bypass stale
 caches and a changed revision during download causes a retry. No extra SQL
 policies are needed for this server-mediated flow. Never put the server
 secret on the Pi; its existing token is sufficient.
+
+## Swissgrid CSV uploads
+
+The two Swissgrid targets use the same private `forecast-data` bucket, token
+validation, signed PUT upload, and overwrite behavior as `forecast-daily`:
+
+| `dashboard` query value | Storage path | Content type |
+| --- | --- | --- |
+| `control-area-balance-yearly` | `swissgrid/control-area-balance-yearly.csv` | `text/csv; charset=utf-8` |
+| `control-area-balance-today` | `swissgrid/control-area-balance-today.csv` | `text/csv; charset=utf-8` |
+
+Neither target accepts a `date` query parameter. A successful authorization
+returns the exact path, a two-hour signed `uploadUrl`, `method: "PUT"`, and the
+CSV content type. Signing uses `{ upsert: true }`, so another upload to the same
+path replaces the previous object.
+
+The authorization endpoint does not receive the file body, so a Next.js or
+Vercel request-body limit does not apply. The Pi uploads directly to Supabase;
+the effective maximum is therefore the lower of the `forecast-data` bucket
+limit and the project's global Storage file-size limit. Ensure that limit is
+above the measured yearly CSV size. Supabase supports standard uploads up to
+5 GB, recommends resumable uploads above 6 MB, and limits the global setting to
+50 MB on Free projects. See the official
+[Storage file limits](https://supabase.com/docs/guides/storage/uploads/file-limits).
