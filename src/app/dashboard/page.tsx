@@ -11,8 +11,16 @@ const SwitzerlandBeta = dynamic(() => import("@/components/SwitzerlandBeta"), {
   ssr: false,
   loading: () => <p className="p-10 text-slate-400">Loading station explorer…</p>,
 });
+const ControlAreaBalance = dynamic(() => import("@/components/ControlAreaBalance"), {
+  ssr: false,
+  loading: () => <p className="p-10 text-slate-400">Loading Swissgrid data…</p>,
+});
 
 const DASHBOARDS = {
+  "control-area-balance": {
+    label: "CH Imbalance & AEP",
+    description: "Swiss control-area balance and balancing energy price",
+  },
   "imbalance-ch": {
     label: "Imbalance CH model",
     description: "Switzerland imbalance dashboard",
@@ -36,6 +44,7 @@ export default function DashboardPage() {
   const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const [activeView, setActiveView] = useState<DashboardView>("empty");
   const [betaMode, setBetaMode] = useState<"today" | "history">("today");
+  const [balanceMode, setBalanceMode] = useState<"today" | "history">("today");
   const [dashboardHtml, setDashboardHtml] = useState<
     Partial<Record<DashboardId, string>>
   >({});
@@ -99,7 +108,7 @@ export default function DashboardPage() {
       setSidebarOpen(false);
     }
 
-    if (dashboardId === "switzerland-beta") return;
+    if (dashboardId === "switzerland-beta" || dashboardId === "control-area-balance") return;
 
     setDashboardLoading(dashboardId);
     setDashboardErrors((current) => ({ ...current, [dashboardId]: undefined }));
@@ -228,7 +237,7 @@ export default function DashboardPage() {
             </button>
           </div>
           <p className="text-[11px] font-semibold tracking-[0.22em] text-cyan-400">
-            GHI Dashboard
+            Energy Dashboard
           </p>
           <h1 className="mt-2 text-lg font-semibold">Dashboard models</h1>
         </div>
@@ -262,6 +271,11 @@ export default function DashboardPage() {
                 {(["today", "history"] as const).map(mode => <button key={mode} type="button" aria-current={betaMode === mode ? "page" : undefined}
                   onClick={() => { setBetaMode(mode); if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false); }}
                   className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${betaMode === mode ? "bg-cyan-400/10 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>{mode === "today" ? "Today" : "Historical"}</button>)}
+              </div>}
+              {dashboardId === "control-area-balance" && isActive && <div className="ml-7 mt-1 space-y-1 border-l border-white/10 pl-3">
+                {(["today", "history"] as const).map(mode => <button key={mode} type="button" aria-current={balanceMode === mode ? "page" : undefined}
+                  onClick={() => { setBalanceMode(mode); if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false); }}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${balanceMode === mode ? "bg-cyan-400/10 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>{mode === "today" ? "Today" : "Historical"}</button>)}
               </div>}
               </div>
             );
@@ -322,6 +336,7 @@ export default function DashboardPage() {
         </header>
 
         <div className="min-h-0 flex-1">
+          {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} />}
           {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode} />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GHI Dashboard",
+  title: "Energy Dashboard",
   description: "Authenticated workspace for Swiss energy and weather models.",
 };
 
