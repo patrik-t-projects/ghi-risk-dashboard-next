@@ -13,11 +13,16 @@ const timeLabel = (time: string) => new Date(time).toLocaleString("en-GB", {
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false,
 }) + " UTC";
 
-export default function ControlAreaBalanceChart({ rows, period }: { rows: ControlAreaBalanceRow[]; period: string }) {
+export default function ControlAreaBalanceChart({ rows, from, to }: { rows: ControlAreaBalanceRow[]; from: string; to: string }) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
   const [hovered, setHovered] = useState<ControlAreaBalanceRow | null>(null);
   const byInstant = useMemo(() => new Map(rows.map(row => [Date.parse(row.time), row])), [rows]);
+  const period = `${from}-${to}`;
+  const xRange = useMemo(() => [
+    `${from}T00:00:00Z`,
+    new Date(Date.parse(`${to}T00:00:00Z`) + 86400000).toISOString(),
+  ], [from, to]);
 
   useEffect(() => {
     const element = container.current as PlotlyElement | null;
@@ -42,7 +47,7 @@ export default function ControlAreaBalanceChart({ rows, period }: { rows: Contro
         ], {
           autosize: true, height: 590, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", bargap: 0.06,
           margin: { l: 72, r: 72, t: 30, b: 72 }, font: { family: "Arial, sans-serif", size: 12, color: "#334155" },
-          xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", rangeslider: { visible: false } },
+          xaxis: { title: { text: "Datetime UTC" }, type: "date", range: xRange, tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", rangeslider: { visible: false } },
           yaxis: { title: { text: "Imbalance" }, zeroline: true, zerolinecolor: "#64748b", gridcolor: "#e5e7eb" },
           yaxis2: { title: { text: "AEP" }, overlaying: "y", side: "right", showgrid: false, zeroline: false },
           hovermode: "x", showlegend: true, legend: { orientation: "h", x: 0, y: 1.08 },
@@ -65,7 +70,7 @@ export default function ControlAreaBalanceChart({ rows, period }: { rows: Contro
         element.removeListener("plotly_hover", hover); element.removeListener("plotly_unhover", unhover);
       }
     };
-  }, [rows, period, byInstant]);
+  }, [rows, period, byInstant, xRange]);
 
   if (error) return <div role="alert" className="rounded-xl border border-amber-300/20 p-8 text-amber-100">The imbalance chart could not be rendered.</div>;
   return <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">

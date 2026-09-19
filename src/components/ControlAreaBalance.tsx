@@ -44,7 +44,9 @@ export default function ControlAreaBalance({ mode, onModeChange }: {
     return () => { controller.abort(); if (interval) clearInterval(interval); document.removeEventListener("visibilitychange", load); };
   }, [mode, range, attempt]);
 
-  const period = mode === "today" ? data?.availableTo ?? new Date().toISOString().slice(0, 10) : `${range.from}-${range.to}`;
+  const today = new Date().toISOString().slice(0, 10);
+  const chartFrom = mode === "today" ? today : range.from;
+  const chartTo = mode === "today" ? today : range.to;
   return <div className="h-[calc(100dvh-4rem)] overflow-y-auto p-4 sm:p-6">
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">Swiss electricity system</p>
@@ -80,6 +82,6 @@ export default function ControlAreaBalance({ mode, onModeChange }: {
       <button className="ml-4 underline" onClick={() => setAttempt(value => value + 1)}>Retry</button>{data && <p className="mt-1 text-xs">Showing the last successfully loaded data.</p>}</div>}
     {loading && <p role="status" className="mb-4 text-sm text-slate-400">Loading Swissgrid imbalance and AEP…</p>}
     {!loading && data && data.rows.length === 0 && <div className="rounded-xl border border-white/10 p-8 text-center text-sm text-slate-400">No Swissgrid values are available for this date range.</div>}
-    {data && data.rows.length > 0 && <ControlAreaBalanceChart rows={data.rows} period={period} />}
+    {data && data.rows.length > 0 && <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo} />}
   </div>;
 }
