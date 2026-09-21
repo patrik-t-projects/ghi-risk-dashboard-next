@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ControlAreaBalanceRow } from "@/lib/controlAreaBalanceCsv";
 
 type PlotlyElement = HTMLElement & {
-  on: (event: string, listener: (event?: { points?: { x?: string | number }[] }) => void) => void;
-  removeListener: (event: string, listener: (event?: { points?: { x?: string | number }[] }) => void) => void;
+  on: (event: string, listener: (event?: { points?: { pointIndex?: number }[] }) => void) => void;
+  removeListener: (event: string, listener: (event?: { points?: { pointIndex?: number }[] }) => void) => void;
 };
 
 const valueLabel = (value: number | null) => value === null ? "No value" : value.toLocaleString("en-GB", { maximumFractionDigits: 2 });
@@ -19,11 +19,11 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
   const [hovered, setHovered] = useState<ControlAreaBalanceRow | null>(null);
-  const byInstant = useMemo(() => new Map(rows.map(row => [Date.parse(row.time), row])), [rows]);
+  const plotTimes = useMemo(() => rows.map(row => row.time.replace(/Z$/, "")), [rows]);
   const period = `${from}-${to}`;
   const xRange = useMemo(() => [
-    new Date(Date.parse(`${from}T00:00:00Z`) - HALF_INTERVAL_MS).toISOString(),
-    new Date(Date.parse(`${to}T00:00:00Z`) + 86400000 - HALF_INTERVAL_MS).toISOString(),
+    new Date(Date.parse(`${from}T00:00:00Z`) - HALF_INTERVAL_MS).toISOString().replace(/Z$/, ""),
+    new Date(Date.parse(`${to}T00:00:00Z`) + 86400000 - HALF_INTERVAL_MS).toISOString().replace(/Z$/, ""),
   ], [from, to]);
 
   useEffect(() => {
@@ -32,9 +32,9 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
     let disposed = false;
     let observer: ResizeObserver | undefined;
     let frame = 0;
-    const hover = (event?: { points?: { x?: string | number }[] }) => {
-      const instant = Date.parse(String(event?.points?.[0]?.x ?? ""));
-      setHovered(Number.isFinite(instant) ? byInstant.get(instant) ?? null : null);
+    const hover = (event?: { points?: { pointIndex?: number }[] }) => {
+      const pointIndex = event?.points?.[0]?.pointIndex;
+      setHovered(pointIndex === undefined ? null : rows[pointIndex] ?? null);
     };
     const unhover = () => setHovered(null);
     async function draw() {
@@ -42,9 +42,9 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
         const { default: Plotly } = await import("plotly.js/dist/plotly-basic.min.js");
         if (disposed || !element) return;
         await Plotly.react(element, [
-          { type: "bar", name: "Imbalance", x: rows.map(row => row.time), y: rows.map(row => row.imbalance),
+          { type: "bar", name: "Imbalance", x: plotTimes, y: rows.map(row => row.imbalance),
             width: QUARTER_HOUR_MS, marker: { color: "#94a3b8" }, opacity: 0.82, hoverinfo: "none" },
-          { type: "scatter", mode: "lines", name: "AEP", x: rows.map(row => row.time), y: rows.map(row => row.aep),
+          { type: "scatter", mode: "lines", name: "AEP", x: plotTimes, y: rows.map(row => row.aep),
             yaxis: "y2", line: { color: "#2563eb", width: 2.8 }, connectgaps: false, hoverinfo: "none" },
         ], {
           autosize: true, height: 590, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", bargap: 0.06,
@@ -72,7 +72,7 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
         element.removeListener("plotly_hover", hover); element.removeListener("plotly_unhover", unhover);
       }
     };
-  }, [rows, period, byInstant, xRange]);
+  }, [rows, period, plotTimes, xRange]);
 
   if (error) return <div role="alert" className="rounded-xl border border-amber-300/20 p-8 text-amber-100">The imbalance chart could not be rendered.</div>;
   return <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
