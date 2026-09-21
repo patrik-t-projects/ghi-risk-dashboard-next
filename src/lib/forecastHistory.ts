@@ -36,6 +36,8 @@ export function observationHoverPoints(segments: ForecastSegments) {
   return { line, anchors: {
     x: line.x,
     y: line.y.map(value => value ?? 0),
-    hovertemplate: line.y.map(value => value === null ? "<extra></extra>" : "Actual GHI: %{y:.1f} W/m²<extra></extra>"),
+    hovertemplate: line.y.map(value => value === null
+      ? "<extra></extra>"
+      : '<span style="color:#16a34a">━</span> Actual GHI: %{y:.1f} W/m²<extra></extra>'),
   } };
 }

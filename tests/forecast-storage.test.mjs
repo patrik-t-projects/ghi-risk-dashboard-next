@@ -96,6 +96,6 @@ test('overlapping daily endpoints merge once; missing values remain gaps', () =>
   const actual = history.observationHoverPoints([copy]);
   assert.deepEqual(Array.from(actual.line.y), [0, null]);
   assert.deepEqual(Array.from(actual.anchors.y), [0, 0]);
-  assert.match(actual.anchors.hovertemplate[0], /Actual GHI/);
+  assert.match(actual.anchors.hovertemplate[0], /color:#16a34a">━<\/span> Actual GHI/);
   assert.equal(actual.anchors.hovertemplate[1], '<extra></extra>');
 });
