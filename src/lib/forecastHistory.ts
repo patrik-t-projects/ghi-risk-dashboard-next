@@ -33,11 +33,10 @@ export function seriesPoints(segments: ForecastSegments, key?: string): { x: str
 
 export function observationHoverPoints(segments: ForecastSegments) {
   const line = seriesPoints(segments);
+  const missingIndexes = line.y.flatMap((value, index) => value === null ? [index] : []);
   return { line, anchors: {
-    x: line.x,
-    y: line.y.map(value => value ?? 0),
-    hovertemplate: line.y.map(value => value === null
-      ? "<extra></extra>"
-      : '<span style="color:#16a34a">━</span> Actual GHI: %{y:.1f} W/m²<extra></extra>'),
+    x: missingIndexes.map(index => line.x[index]),
+    y: missingIndexes.map(() => 0),
+    hovertemplate: missingIndexes.map(() => "<extra></extra>"),
   } };
 }

@@ -59,11 +59,11 @@ export default function ForecastChart({ data, station, model, period = "" }: {
         });
         const actual = observationHoverPoints(segments);
         traces.push({ type: "scatter", mode: "lines", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...actual.line, hoverinfo: "skip",
+          ...actual.line, hovertemplate: "Actual GHI: %{y:.1f} W/m²<extra></extra>",
           line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
         });
-        // Invisible points at every forecast timestamp prevent unified hover from
-        // snapping to an older observation when the exact timestamp is unknown.
+        // Invisible points at missing observation timestamps prevent unified hover
+        // from snapping to an older measurement when the exact value is unknown.
         traces.push({ type: "scatter", mode: "markers", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
           ...actual.anchors, marker: { opacity: 0, size: 1 },
         });

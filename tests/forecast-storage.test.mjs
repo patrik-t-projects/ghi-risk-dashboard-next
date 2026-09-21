@@ -95,7 +95,14 @@ test('overlapping daily endpoints merge once; missing values remain gaps', () =>
   assert.equal(history.seriesPoints([copy], data.series[0].key).y[1], null);
   const actual = history.observationHoverPoints([copy]);
   assert.deepEqual(Array.from(actual.line.y), [0, null]);
-  assert.deepEqual(Array.from(actual.anchors.y), [0, 0]);
-  assert.match(actual.anchors.hovertemplate[0], /color:#16a34a">━<\/span> Actual GHI/);
-  assert.equal(actual.anchors.hovertemplate[1], '<extra></extra>');
+  assert.deepEqual(Array.from(actual.anchors.x), ['2026-09-12T00:30:00']);
+  assert.deepEqual(Array.from(actual.anchors.y), [0]);
+  assert.deepEqual(Array.from(actual.anchors.hovertemplate), ['<extra></extra>']);
+});
+
+test('Actual GHI hover uses the native green line trace', () => {
+  const source = fs.readFileSync('src/components/ForecastChart.tsx', 'utf8');
+  assert.match(source, /\.\.\.actual\.line, hovertemplate: "Actual GHI:/);
+  assert.match(source, /line: \{ color: "#16a34a", width: 3\.2 \}/);
+  assert.doesNotMatch(source, /<span style=.*Actual GHI/);
 });
