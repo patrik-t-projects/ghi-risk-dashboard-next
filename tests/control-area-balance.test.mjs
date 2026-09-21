@@ -86,4 +86,6 @@ test('chart defines grey imbalance bars, a blue AEP line and top-left hover deta
   assert.match(source, /color: "#2563eb"/);
   assert.match(source, /absolute left-4 top-4/);
   assert.match(source, /range: xRange/);
+  assert.match(source, /width: QUARTER_HOUR_MS/);
+  assert.match(source, /HALF_INTERVAL_MS/);
 });

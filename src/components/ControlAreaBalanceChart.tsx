@@ -12,6 +12,8 @@ const valueLabel = (value: number | null) => value === null ? "No value" : value
 const timeLabel = (time: string) => new Date(time).toLocaleString("en-GB", {
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false,
 }) + " UTC";
+const QUARTER_HOUR_MS = 15 * 60 * 1000;
+const HALF_INTERVAL_MS = QUARTER_HOUR_MS / 2;
 
 export default function ControlAreaBalanceChart({ rows, from, to }: { rows: ControlAreaBalanceRow[]; from: string; to: string }) {
   const container = useRef<HTMLDivElement>(null);
@@ -20,8 +22,8 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
   const byInstant = useMemo(() => new Map(rows.map(row => [Date.parse(row.time), row])), [rows]);
   const period = `${from}-${to}`;
   const xRange = useMemo(() => [
-    `${from}T00:00:00Z`,
-    new Date(Date.parse(`${to}T00:00:00Z`) + 86400000).toISOString(),
+    new Date(Date.parse(`${from}T00:00:00Z`) - HALF_INTERVAL_MS).toISOString(),
+    new Date(Date.parse(`${to}T00:00:00Z`) + 86400000 - HALF_INTERVAL_MS).toISOString(),
   ], [from, to]);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
         if (disposed || !element) return;
         await Plotly.react(element, [
           { type: "bar", name: "Imbalance", x: rows.map(row => row.time), y: rows.map(row => row.imbalance),
-            width: 14 * 60 * 1000, marker: { color: "#94a3b8" }, opacity: 0.82, hoverinfo: "none" },
+            width: QUARTER_HOUR_MS, marker: { color: "#94a3b8" }, opacity: 0.82, hoverinfo: "none" },
           { type: "scatter", mode: "lines", name: "AEP", x: rows.map(row => row.time), y: rows.map(row => row.aep),
             yaxis: "y2", line: { color: "#2563eb", width: 2.8 }, connectgaps: false, hoverinfo: "none" },
         ], {
