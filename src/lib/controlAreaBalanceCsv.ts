@@ -64,7 +64,7 @@ export function parseControlAreaBalanceCsv(text: string): ControlAreaBalanceData
   const columns = new Map(normalized.map((column, index) => [column, index]));
   const timestampColumn = columns.get("Date Time [UTC]");
   const imbalanceColumn = columns.get("Total System Imbalance");
-  const aepColumn = columns.get("AE-Preis");
+  const aepColumn = columns.get("AEP EUR/MWh") ?? columns.get("AE-Preis");
   if (timestampColumn === undefined || imbalanceColumn === undefined || aepColumn === undefined) {
     throw new Error("The Swissgrid CSV is missing timestamp, imbalance, or AEP data.");
   }

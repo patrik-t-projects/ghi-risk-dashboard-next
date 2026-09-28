@@ -31,6 +31,11 @@ test('parses the exact Swissgrid semicolon schema into sorted UTC values', () =>
   assert.equal(parser.selectControlAreaBalanceRange(data.rows, '2026-09-19', '2026-09-19').length, 2);
 });
 
+test('accepts the future AEP EUR/MWh column name', () => {
+  const data = parser.parseControlAreaBalanceCsv(csv.replace('AE-Preis', 'AEP EUR/MWh'));
+  assert.equal(data.rows[0].aep, 23.14);
+});
+
 test('rejects missing columns, duplicate timestamps and non-quarter-hour timestamps', () => {
   assert.throws(() => parser.parseControlAreaBalanceCsv('Date Time [UTC];Total System Imbalance\n19.09.2026 00:00;1\n'));
   assert.throws(() => parser.parseControlAreaBalanceCsv(csv + '19.09.2026 00:00;x;1;2\n'));
@@ -78,16 +83,21 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
   }
 });
 
-test('chart defines grey imbalance bars, a blue AEP line and top-left hover details', () => {
+test('chart defines units, moving unified hover and a vertical cursor line', () => {
   const source = fs.readFileSync('src/components/ControlAreaBalanceChart.tsx', 'utf8');
   assert.match(source, /type: "bar"/);
   assert.match(source, /color: "#94a3b8"/);
   assert.match(source, /name: "AEP"/);
   assert.match(source, /color: "#2563eb"/);
-  assert.match(source, /absolute left-4 top-4/);
+  assert.match(source, /Imbalance \[MW\]/);
+  assert.match(source, /AEP \[EUR\/MWh\]/);
+  assert.match(source, /hovermode: "x unified"/);
+  assert.match(source, /showspikes: true/);
+  assert.match(source, /spikemode: "across"/);
+  assert.match(source, /spikesnap: "cursor"/);
+  assert.doesNotMatch(source, /absolute left-4 top-4/);
   assert.match(source, /range: xRange/);
   assert.match(source, /width: QUARTER_HOUR_MS/);
   assert.match(source, /HALF_INTERVAL_MS/);
   assert.match(source, /row\.time\.replace\(\/Z\$\/, ""\)/);
-  assert.match(source, /pointIndex/);
 });
