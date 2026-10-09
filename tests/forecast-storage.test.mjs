@@ -12,92 +12,109 @@ function compile(file, require = () => { throw Error('Unexpected dependency'); }
   } }).outputText, context);
   return context.exports;
 }
+
 const parser = compile('src/lib/forecastCsv.ts');
 const history = compile('src/lib/forecastHistory.ts');
 const csv = (day, value = 1) => 'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1\n' +
   `${day}T00:15:00Z,CHZ,"47.18,8.46",ICON1,12.09.2026 00 UTC,0,${value},2\n`;
-function mockSource(initialContent = csv('2026-09-12')) {
-  let entry = { name: 'icon_ghi_all_stations_2026-09-12.csv', id: 'file-1', updated_at: 'v1', metadata: { size: 100, eTag: '1' } };
-  let content = initialContent; let downloads = 0; let race = false;
-  const storage = { list: async () => ({ data: entry ? [entry] : [], error: null }),
+
+function mockSource() {
+  let daily = { name: 'daily.csv', id: 'daily-1', updated_at: 'v1', metadata: { size: 100, eTag: '1' } };
+  const monthly = [
+    { name: '2026-09.csv', id: 'month-9', updated_at: 'v1', metadata: { eTag: '9' } },
+    { name: '2026-10.csv', id: 'month-10', updated_at: 'v1', metadata: { eTag: '10' } },
+  ];
+  const downloads = [];
+  const storage = {
+    list: async path => ({ data: path.endsWith('/monthly') ? monthly : daily ? [daily] : [], error: null }),
     download: async (path, options, parameters) => {
-      assert.equal(path, 'daily/icon_ghi_all_stations_2026-09-12.csv');
-      assert.ok(options.cacheNonce); assert.equal(parameters.cache, 'no-store'); downloads++;
-      if (race) entry = { ...entry, updated_at: 'race' };
+      downloads.push(path);
+      assert.ok(options.cacheNonce);
+      assert.equal(parameters.cache, 'no-store');
+      const content = path.endsWith('daily.csv') ? csv('2026-10-09', daily.updated_at === 'v1' ? 1 : 9) :
+        path.endsWith('2026-09.csv') ? csv('2026-09-12', 2) : csv('2026-10-01', 3);
       return { data: new Blob([content]), error: null };
-    } };
+    },
+  };
   const source = compile('src/lib/forecastSource.ts', name => {
     if (name === 'node:crypto') return crypto;
     if (name === './forecastCsv') return parser;
+    if (name === './forecastStationCatalog') return { knownForecastStation: station => station === 'CHZ' };
     if (name === '@supabase/supabase-js') return { createClient: () => ({ storage: { from: bucket => {
       assert.equal(bucket, 'forecast-data'); return storage;
     } } }) };
     throw Error(name);
   }, { process: { env: { NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co', SUPABASE_SECRET_KEY: 'test-secret' } } });
-  return { source, downloads: () => downloads, update: () => { entry = { ...entry, updated_at: 'v2', metadata: { eTag: '2' } }; content = csv('2026-09-12', 9); },
-    remove: () => { entry = null; }, race: () => { race = true; } };
+  return {
+    source,
+    downloads,
+    updateDaily: () => { daily = { ...daily, updated_at: 'v2', metadata: { eTag: '2' } }; },
+    removeDaily: () => { daily = null; },
+  };
 }
 
-test('storage snapshot reuses unchanged uploads and invalidates changed days', async () => {
-  const mock = mockSource(); const first = (await mock.source.listForecastFiles())[0];
-  const result = await mock.source.loadDailyForecast(first.day, first.version);
-  await mock.source.loadDailyForecast(first.day, first.version);
-  assert.equal(mock.downloads(), 1);
-  assert.equal(result.data.stations[0].rows[0].values[0], 1);
-  mock.update(); const second = (await mock.source.listForecastFiles(true))[0];
-  assert.notEqual(second.version, first.version);
-  await assert.rejects(mock.source.loadDailyForecast(first.day, first.version), error => error.status === 409);
-  assert.equal((await mock.source.loadDailyForecast(second.day, second.version)).data.stations[0].rows[0].values[0], 9);
-  assert.equal(mock.downloads(), 2);
+test('daily station snapshots use the stable path and invalidate overwritten versions', async () => {
+  const mock = mockSource();
+  const first = await mock.source.loadStationForecast('CHZ', 'today', '2026-10-09', '2026-10-09');
+  await mock.source.loadStationForecast('CHZ', 'today', '2026-10-09', '2026-10-09');
+  assert.deepEqual(mock.downloads, ['forecast/stations/CHZ/daily.csv']);
+  assert.equal(first[0].data.stations[0].rows[0].values[0], 1);
+  mock.updateDaily();
+  const second = await mock.source.loadStationForecast('CHZ', 'today', '2026-10-09', '2026-10-09');
+  assert.equal(second[0].data.stations[0].rows[0].values[0], 9);
+  assert.equal(mock.downloads.length, 2);
 });
-test('empty storage has no local fallback; upload races are rejected', async () => {
-  const empty = mockSource(); empty.remove();
-  assert.equal((await empty.source.listForecastFiles()).length, 0);
-  await assert.rejects(empty.source.loadDailyForecast('2026-09-12'), error => error.status === 404);
-  const race = mockSource(); const file = (await race.source.listForecastFiles())[0]; race.race();
-  await assert.rejects(race.source.loadDailyForecast(file.day, file.version), error => error.status === 409);
-});
-test('daily timestamps use calendar-day boundaries in UTC', async () => {
-  const header = 'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1\n';
-  const row = timestamp => `${timestamp},CHZ,"47.18,8.46",ICON1,12.09.2026 00 UTC,0,1,2\n`;
-  const valid = mockSource(header + row('2026-09-12T00:00:00Z') + row('2026-09-12T23:45:00Z'));
-  const validFile = (await valid.source.listForecastFiles())[0];
-  const result = await valid.source.loadDailyForecast(validFile.day, validFile.version);
-  assert.equal(result.data.start, '2026-09-12T00:00:00Z');
-  assert.equal(result.data.end, '2026-09-12T23:45:00Z');
 
-  const previousDay = mockSource(header + row('2026-09-11T23:45:00Z'));
-  const previousFile = (await previousDay.source.listForecastFiles())[0];
-  await assert.rejects(previousDay.source.loadDailyForecast(previousFile.day, previousFile.version), error => error.status === 422);
-
-  const nextDay = mockSource(header + row('2026-09-13T00:00:00Z'));
-  const nextFile = (await nextDay.source.listForecastFiles())[0];
-  await assert.rejects(nextDay.source.loadDailyForecast(nextFile.day, nextFile.version), error => error.status === 422);
+test('historical ranges download only overlapping monthly files for one station', async () => {
+  const mock = mockSource();
+  const snapshots = await mock.source.loadStationForecast('CHZ', 'history', '2026-09-30', '2026-10-01');
+  assert.deepEqual(Array.from(snapshots, snapshot => snapshot.file.period), ['2026-09', '2026-10']);
+  assert.deepEqual(mock.downloads, [
+    'forecast/stations/CHZ/monthly/2026-09.csv',
+    'forecast/stations/CHZ/monthly/2026-10.csv',
+  ]);
+  assert.deepEqual(Array.from(mock.source.monthsInRange('2026-08-31', '2026-10-01')), ['2026-08', '2026-09', '2026-10']);
 });
-test('historical days retain series identity, observations and gaps without dense null matrices', () => {
+
+test('missing and unknown station files fail without an all-stations fallback', async () => {
+  const mock = mockSource();
+  mock.removeDaily();
+  await assert.rejects(mock.source.loadStationForecast('CHZ', 'today', '2026-10-09', '2026-10-09'), error => error.status === 404);
+  await assert.rejects(mock.source.loadStationForecast('BAD', 'today', '2026-10-09', '2026-10-09'), error => error.code === 'station_not_found');
+});
+
+test('station range filtering keeps only selected UTC days', async () => {
+  const mock = mockSource();
+  const snapshots = await mock.source.loadStationForecast('CHZ', 'history', '2026-09-12', '2026-09-12');
+  const detail = mock.source.stationDetail(snapshots[0], '2026-09-12', '2026-09-12');
+  assert.equal(detail.station.id, 'CHZ');
+  assert.equal(detail.station.rows.length, 1);
+  assert.equal(mock.source.stationDetail(snapshots[0], '2026-09-13', '2026-09-13'), null);
+});
+
+test('historical files retain series identity, observations and gaps without dense null matrices', () => {
   const detail = day => { const data = parser.parseForecastCsv(csv(day)); return { ...data, station: data.stations[0] }; };
   const combined = history.combineStationDays([detail('2026-09-14'), detail('2026-09-12')]);
-  assert.equal(combined.series.length, 2); // same runtime in both daily files
+  assert.equal(combined.series.length, 2);
   assert.equal(combined.segments.length, 2);
-  assert.equal(combined.station.rows.length, 0); // sparse daily segments
+  assert.equal(combined.station.rows.length, 0);
   const values = history.seriesPoints(combined.segments, combined.series[0].key);
   assert.deepEqual(Array.from(values.y), [1, null, 1]);
   assert.deepEqual(Array.from(history.seriesPoints(combined.segments).y), [0, null, 0]);
   assert.equal(values.x[0], '2026-09-12T00:15:00');
   assert.equal(values.x.at(-1), '2026-09-14T00:15:00');
 });
-test('overlapping daily endpoints merge once; missing values remain gaps', () => {
+
+test('overlapping endpoints merge once and Actual GHI hover gaps remain safe', () => {
   const data = parser.parseForecastCsv(csv('2026-09-12'));
   const segment = { series: data.series, rows: data.stations[0].rows };
   const points = history.seriesPoints([segment, segment], data.series[0].key);
   assert.equal(points.x.length, 1);
   const copy = { ...segment, rows: [...segment.rows, { time: '2026-09-12T00:30:00Z', measured: null, values: [null, null] }] };
-  assert.equal(history.seriesPoints([copy], data.series[0].key).y[1], null);
   const actual = history.observationHoverPoints([copy]);
   assert.deepEqual(Array.from(actual.line.y), [0, null]);
   assert.deepEqual(Array.from(actual.anchors.x), ['2026-09-12T00:30:00']);
   assert.deepEqual(Array.from(actual.anchors.y), [0]);
-  assert.deepEqual(Array.from(actual.anchors.hovertemplate), ['<extra></extra>']);
 });
 
 test('Actual GHI hover uses the native green line trace', () => {

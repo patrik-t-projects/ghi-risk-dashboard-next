@@ -48,11 +48,11 @@ export async function POST(request: Request) {
 
   const params = new URL(request.url).searchParams;
   const dashboardId = params.get("dashboard");
-  const target = resolveUploadTarget(dashboardId, params.get("date"));
+  const target = resolveUploadTarget(dashboardId, params.get("date"), params.get("station"), params.get("month"));
 
   if (!target) {
     return Response.json(
-      { error: "Invalid upload target. Daily forecasts require a valid date; all other targets reject the date parameter." },
+      { error: "Invalid upload target or upload parameters." },
       {
         status: 400,
         headers: { "Cache-Control": "no-store" },

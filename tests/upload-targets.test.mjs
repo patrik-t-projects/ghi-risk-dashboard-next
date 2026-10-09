@@ -33,6 +33,55 @@ test('daily files use one date-specific path; past dates remain uploadable', () 
   }
 });
 
+const stationTargets = [
+  ['forecast-station-daily', '2026-10-09', 'CHZ', null, 'forecast/stations/CHZ/daily.csv'],
+  ['forecast-station-monthly', null, 'CHZ', '2026-10', 'forecast/stations/CHZ/monthly/2026-10.csv'],
+];
+
+test('station forecast targets use the exact Pi paths and content type', () => {
+  for (const [id, date, station, month, path] of stationTargets) {
+    const target = resolveUploadTarget(id, date, station, month);
+    assert.equal(target.bucket, 'forecast-data');
+    assert.equal(target.path, path);
+    assert.equal(target.contentType, 'text/csv');
+  }
+});
+
+test('upload authorization signs station paths with overwrite enabled', async () => {
+  for (const [id, date, station, month, path] of stationTargets) {
+    const signed = {};
+    const route = compile('src/app/api/dashboard-upload/route.ts', name => {
+      if (name === 'node:crypto') return crypto;
+      if (name === '@/lib/uploadTargets') return targets;
+      if (name === '@supabase/supabase-js') return { createClient: () => ({ storage: { from: bucket => {
+        signed.bucket = bucket;
+        return { createSignedUploadUrl: async (storagePath, options) => {
+          signed.path = storagePath; signed.upsert = options.upsert;
+          return { data: { signedUrl: `https://storage.example/upload/${id}` }, error: null };
+        } };
+      } } }) };
+      throw Error(name);
+    }, { Buffer, URL, Response, console, process: { env: {
+      NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+      SUPABASE_SECRET_KEY: 'server-secret', PI_UPLOAD_TOKEN: 'pi-token',
+    } } });
+    const query = new URLSearchParams({ dashboard: id, station });
+    if (date) query.set('date', date);
+    if (month) query.set('month', month);
+    const response = await route.POST(new Request(`https://dashboard.example/api/dashboard-upload?${query}`, {
+      method: 'POST', headers: { Authorization: 'Bearer pi-token' },
+    }));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(signed.bucket, 'forecast-data');
+    assert.equal(signed.path, path);
+    assert.equal(signed.upsert, true);
+    assert.equal(body.path, path);
+    assert.equal(body.contentType, 'text/csv');
+    assert.equal(body.method, 'PUT');
+  }
+});
+
 const swissgridTargets = [
   ['control-area-balance-yearly', 'swissgrid/control-area-balance-yearly.csv'],
   ['control-area-balance-today', 'swissgrid/control-area-balance-today.csv'],
@@ -89,4 +138,8 @@ test('rejects malformed dates, invalid calendar days, unknown targets and path i
     assert.equal(resolveUploadTarget('forecast-daily', day), null);
   }
   for (const id of [null, '__proto__', 'constructor', 'historical', '../other']) assert.equal(resolveUploadTarget(id, '2026-09-12'), null);
+  assert.equal(resolveUploadTarget('forecast-station-daily', '2026-10-09', '../CHZ', null), null);
+  assert.equal(resolveUploadTarget('forecast-station-daily', '2026-10-09', 'chz', null), null);
+  assert.equal(resolveUploadTarget('forecast-station-monthly', null, 'CHZ', '2026-13'), null);
+  assert.equal(resolveUploadTarget('forecast-station-monthly', '2026-10-09', 'CHZ', '2026-10'), null);
 });

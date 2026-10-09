@@ -27,7 +27,7 @@ for (const mode of ['today', 'history']) test(`${mode} controls and map render b
   assert.match(html, /Map of Switzerland with canton boundaries/);
   assert.match(html, /Zoom map in/);
   assert.match(html, /Choose format/);
-  assert.match(html, /Checking uploaded forecasts/);
+  assert.match(html, /Loading station map/);
   assert.doesNotMatch(html, /Supabase Storage/);
   if (mode === 'history') {
     assert.match(html, /From \(UTC day\)/);
