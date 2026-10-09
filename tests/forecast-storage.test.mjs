@@ -117,6 +117,24 @@ test('overlapping endpoints merge once and Actual GHI hover gaps remain safe', (
   assert.deepEqual(Array.from(actual.anchors.y), [0]);
 });
 
+test('multi-day historical legends group runs by UTC hour and members by hour plus member', () => {
+  const morningDayOne = { key: 'one', model: 'icon_ch1', run: '20260912T060000Z', member: 'member_1' };
+  const morningDayTwo = { key: 'two', model: 'icon_ch1', run: '20260913T060000Z', member: 'member_1' };
+  const evening = { key: 'three', model: 'icon_ch1', run: '20260913T180000Z', member: 'member_1' };
+  const identities = [
+    [history.runtimeLegendIdentity(morningDayOne.run, true), 'hour-6', '6 UTC'],
+    [history.runtimeLegendIdentity(morningDayTwo.run, true), 'hour-6', '6 UTC'],
+    [history.runtimeLegendIdentity(evening.run, true), 'hour-18', '18 UTC'],
+    [history.memberLegendIdentity(morningDayOne, true), 'hour-6:member_1', '6 UTC · Member 1'],
+    [history.memberLegendIdentity(morningDayTwo, true), 'hour-6:member_1', '6 UTC · Member 1'],
+    [history.memberLegendIdentity(morningDayOne, false), '20260912T060000Z:member_1', 'Member 1'],
+  ];
+  for (const [identity, key, label] of identities) {
+    assert.equal(identity.key, key);
+    assert.equal(identity.label, label);
+  }
+});
+
 test('Actual GHI hover uses the native green line trace', () => {
   const source = fs.readFileSync('src/components/ForecastChart.tsx', 'utf8');
   assert.match(source, /\.\.\.actual\.line, hovertemplate: "Actual GHI:/);

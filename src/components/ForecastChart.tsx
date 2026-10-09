@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
-import { observationHoverPoints, seriesPoints } from "@/lib/forecastHistory";
-
-const runLabel = (run: string) => `${run.slice(6, 8)}.${run.slice(4, 6)}. ${Number(run.slice(9, 11))} UTC`;
+import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints } from "@/lib/forecastHistory";
 
 export default function ForecastChart({ data, station, model, period = "" }: {
   data: Pick<ForecastData, "series"> & { segments?: ForecastSegments }; station: StationForecast; model: "icon_ch1" | "icon_ch2"; period?: string;
@@ -20,9 +18,17 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     return () => { if (element) void import("plotly.js/dist/plotly-basic.min.js").then(({ default: plotly }) => plotly.purge(element)); };
   }, []);
   const runs = [...new Set(data.series.filter(s => s.model === model).map(s => s.run))].sort();
+  const [periodFrom, periodTo] = period.split(":");
+  const groupHistoricalRuns = Boolean(periodFrom && periodTo && periodFrom < periodTo);
+  const runGroups = [...new Map(runs.map(run => {
+    const identity = runtimeLegendIdentity(run, groupHistoricalRuns);
+    return [identity.key, identity];
+  })).values()].sort((a, b) => groupHistoricalRuns
+    ? Number(a.key.slice(5)) - Number(b.key.slice(5))
+    : a.key.localeCompare(b.key));
   const title = `${model === "icon_ch1" ? "ICON1" : "ICON2"} · Global horizontal irradiance`;
   const exportLegend = JSON.stringify([
-    ...runs.map((run, index) => ({ label: runLabel(run), color: index === runs.length - 1 ? "#2563eb" : "#9ca3af", checked: !hiddenRuns.includes(run) })),
+    ...runGroups.map((run, index) => ({ label: run.label, color: index === runGroups.length - 1 ? "#2563eb" : "#9ca3af", checked: !hiddenRuns.includes(run.key) })),
     { label: "Members", checked: members },
     { label: "Actual GHI", color: "#16a34a", checked: showActual },
   ]);
@@ -39,20 +45,35 @@ export default function ForecastChart({ data, station, model, period = "" }: {
         const { default: Plotly } = await import("plotly.js/dist/plotly-basic.min.js");
         if (disposed || !element) return;
         const modelRuns = [...new Set(data.series.filter(s => s.model === model).map(s => s.run))].sort();
+        const modelRunGroups = [...new Map(modelRuns.map(run => {
+          const identity = runtimeLegendIdentity(run, groupHistoricalRuns);
+          return [identity.key, identity];
+        })).values()].sort((a, b) => groupHistoricalRuns
+          ? Number(a.key.slice(5)) - Number(b.key.slice(5))
+          : a.key.localeCompare(b.key));
+        const latestRunGroup = modelRunGroups.at(-1)?.key;
+        const shownMemberLegends = new Set<string>();
         const traces: Record<string, unknown>[] = [];
         const segments = data.segments ?? [{ series: data.series, rows: station.rows }];
         data.series.forEach((series) => {
           if (series.model !== model) return;
-          const latest = series.run === modelRuns[modelRuns.length - 1];
+          const runIdentity = runtimeLegendIdentity(series.run, groupHistoricalRuns);
+          const latest = runIdentity.key === latestRunGroup;
           const control = series.member === "control";
-          const runVisible = !hiddenRuns.includes(series.run);
+          const runVisible = !hiddenRuns.includes(runIdentity.key);
+          const memberIdentity = memberLegendIdentity(series, groupHistoricalRuns);
+          const firstMemberLegend = !shownMemberLegends.has(memberIdentity.key);
+          if (!control) shownMemberLegends.add(memberIdentity.key);
           const date = `${series.run.slice(0, 4)}-${series.run.slice(4, 6)}-${series.run.slice(6, 8)}`;
           const run = `${date} ${series.run.slice(9, 11)}:${series.run.slice(11, 13)} UTC`;
           traces.push({
-            type: "scatter", mode: "lines", name: control ? "Control" : series.member.replace("member_", "Member "),
+            type: "scatter", mode: "lines", name: control ? "Control" : memberIdentity.label,
             ...seriesPoints(segments, series.key),
-            connectgaps: false, legendgroup: series.run, legendgrouptitle: { text: runLabel(series.run) },
-            showlegend: !control, visible: control ? runVisible : runVisible && members ? true : "legendonly",
+            connectgaps: false,
+            legendgroup: groupHistoricalRuns ? (control ? `control:${runIdentity.key}` : memberIdentity.key) : series.run,
+            ...(groupHistoricalRuns ? {} : { legendgrouptitle: { text: runIdentity.label } }),
+            showlegend: !control && (!groupHistoricalRuns || firstMemberLegend),
+            visible: control ? runVisible : runVisible && members ? true : "legendonly",
             line: { color: latest ? "#2563eb" : "#9ca3af", width: control ? 3.2 : 1.4 }, opacity: control ? 1 : 0.5,
             hovertemplate: `${control ? "Control" : series.member.replace("member_", "Member ")} · ${run}<br>%{y:.1f} W/m²<extra></extra>`,
           });
@@ -74,7 +95,7 @@ export default function ForecastChart({ data, station, model, period = "" }: {
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
           yaxis: { title: { text: "GHI [W/m²]" }, rangemode: "tozero", gridcolor: "#e5e7eb" },
           hovermode: "x unified", uirevision: `${station.id}-${model}-${period}`, showlegend: true,
-          legend: { orientation: "h", y: -0.22, x: 0, maxheight: 58, groupclick: "toggleitem", font: { size: 9 } },
+          legend: { orientation: "h", y: -0.22, x: 0, maxheight: 58, groupclick: groupHistoricalRuns ? "togglegroup" : "toggleitem", font: { size: 9 } },
         }, { responsive: true, displaylogo: false, scrollZoom: false, toImageButtonOptions: { filename: `${station.id}-${model}-ghi`, scale: 2 } });
         if (disposed) return;
         observer = new ResizeObserver(() => {
@@ -86,15 +107,15 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     }
     void draw();
     return () => { disposed = true; observer?.disconnect(); cancelAnimationFrame(frame); };
-  }, [data, station, model, hiddenRuns, members, showActual, attempt, period]);
+  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns]);
 
   return <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
     <div className="border-b border-slate-100 px-5 py-4">
       <h3 className="font-semibold">{model === "icon_ch1" ? "ICON1" : "ICON2"} <span className="ml-2 font-normal text-slate-400">Global horizontal irradiance</span></h3>
       <div className="mt-3 flex max-h-28 flex-wrap items-center gap-x-4 gap-y-2 overflow-y-auto text-xs">
-        {runs.map((run, index) => <label key={run} className="flex cursor-pointer items-center gap-2">
-          <input type="checkbox" checked={!hiddenRuns.includes(run)} onChange={e => setHiddenRuns(current => e.target.checked ? current.filter(r => r !== run) : [...current, run])} />
-          <span className="h-0.5 w-4" style={{ background: index === runs.length - 1 ? "#2563eb" : "#9ca3af" }} />{runLabel(run)}
+        {runGroups.map((run, index) => <label key={run.key} className="flex cursor-pointer items-center gap-2">
+          <input type="checkbox" checked={!hiddenRuns.includes(run.key)} onChange={e => setHiddenRuns(current => e.target.checked ? current.filter(r => r !== run.key) : [...current, run.key])} />
+          <span className="h-0.5 w-4" style={{ background: index === runGroups.length - 1 ? "#2563eb" : "#9ca3af" }} />{run.label}
         </label>)}
         <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={members} onChange={e => setMembers(e.target.checked)} />Members</label>
         <label className="flex cursor-pointer items-center gap-2 text-green-600"><input type="checkbox" checked={showActual} onChange={e => setShowActual(e.target.checked)} /><span>━ Actual GHI</span></label>

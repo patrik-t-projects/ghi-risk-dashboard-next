@@ -1,5 +1,20 @@
 import type { ForecastSegments, ForecastSeries, StationDetail, StationForecast } from "./forecastCsv";
 
+export type ForecastLegendIdentity = { key: string; label: string };
+
+export function runtimeLegendIdentity(run: string, groupByHour: boolean): ForecastLegendIdentity {
+  const hour = Number(run.slice(9, 11));
+  return groupByHour
+    ? { key: `hour-${hour}`, label: `${hour} UTC` }
+    : { key: run, label: `${run.slice(6, 8)}.${run.slice(4, 6)}. ${hour} UTC` };
+}
+
+export function memberLegendIdentity(series: ForecastSeries, groupByHour: boolean): ForecastLegendIdentity {
+  const run = runtimeLegendIdentity(series.run, groupByHour);
+  const member = series.member.replace("member_", "Member ");
+  return { key: `${run.key}:${series.member}`, label: groupByHour ? `${run.label} · ${member}` : member };
+}
+
 /** Keep daily series sparse. A month of separate runs must not become a huge
  * time × all-runs matrix full of nulls. */
 export function combineStationDays(days: StationDetail[]): { station: StationForecast; series: ForecastSeries[]; segments: ForecastSegments } {
