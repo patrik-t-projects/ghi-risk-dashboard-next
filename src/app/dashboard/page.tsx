@@ -11,6 +11,10 @@ const SwitzerlandBeta = dynamic(() => import("@/components/SwitzerlandBeta"), {
   ssr: false,
   loading: () => <p className="p-10 text-slate-400">Loading station explorer…</p>,
 });
+const FogMap = dynamic(() => import("@/components/FogMap"), {
+  ssr: false,
+  loading: () => <p className="p-10 text-slate-400">Loading fog map…</p>,
+});
 const ControlAreaBalance = dynamic(() => import("@/components/ControlAreaBalance"), {
   ssr: false,
   loading: () => <p className="p-10 text-slate-400">Loading Swissgrid data…</p>,
@@ -28,6 +32,10 @@ const DASHBOARDS = {
   "switzerland-beta": {
     label: "Switzerland map — Beta",
     description: "Station forecasts · Today and historical days",
+  },
+  "fog-map": {
+    label: "Fog map",
+    description: "Switzerland fog map",
   },
 } as const;
 
@@ -108,7 +116,7 @@ export default function DashboardPage() {
       setSidebarOpen(false);
     }
 
-    if (dashboardId === "switzerland-beta" || dashboardId === "control-area-balance") return;
+    if (dashboardId === "switzerland-beta" || dashboardId === "fog-map" || dashboardId === "control-area-balance") return;
 
     setDashboardLoading(dashboardId);
     setDashboardErrors((current) => ({ ...current, [dashboardId]: undefined }));
@@ -338,6 +346,7 @@ export default function DashboardPage() {
         <div className="min-h-0 flex-1">
           {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} />}
           {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode} />}
+          {activeView === "fog-map" && <FogMap />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">
               <div className="max-w-md text-center">
