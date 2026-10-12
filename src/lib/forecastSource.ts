@@ -118,10 +118,19 @@ export function stationDetail(snapshot: StationForecastSnapshot, from: string, t
   const start = Date.parse(`${from}T00:00:00Z`);
   const end = Date.parse(`${to}T00:00:00Z`) + 86400000;
   const source = snapshot.data.stations[0];
-  const rows = source.rows.filter(row => {
+  const rangeRows = source.rows.filter(row => {
     const instant = Date.parse(row.time);
     return instant >= start && instant < end;
   });
-  if (!rows.length) return null;
-  return { station: { ...source, rows }, series: snapshot.data.series, start: rows[0].time, end: rows.at(-1)!.time };
+  if (!rangeRows.length) return null;
+  const activeSeriesIndexes = snapshot.data.series.flatMap((series, index) => {
+    const runDay = `${series.run.slice(0, 4)}-${series.run.slice(4, 6)}-${series.run.slice(6, 8)}`;
+    return runDay >= from && runDay <= to &&
+      rangeRows.some(row => row.values[index] !== null && row.values[index] !== undefined) ? [index] : [];
+  });
+  const series = activeSeriesIndexes.map(index => snapshot.data.series[index]);
+  const rows = rangeRows.map(row => ({ ...row,
+    values: activeSeriesIndexes.map(index => row.values[index] ?? null),
+  }));
+  return { station: { ...source, rows }, series, start: rows[0].time, end: rows.at(-1)!.time };
 }

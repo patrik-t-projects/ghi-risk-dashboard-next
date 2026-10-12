@@ -92,6 +92,20 @@ test('station range filtering keeps only selected UTC days', async () => {
   assert.equal(mock.source.stationDetail(snapshots[0], '2026-09-13', '2026-09-13'), null);
 });
 
+test('single-day history removes month-wide runtimes outside the selected runtime day', () => {
+  const text = [
+    'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1',
+    '2026-10-11T12:15:00Z,CHZ,"47.18,8.46",ICON1,01.10.2026 06 UTC,200,10,11',
+    '2026-10-11T12:15:00Z,CHZ,"47.18,8.46",ICON1,11.10.2026 06 UTC,200,20,21',
+  ].join('\n');
+  const data = parser.parseForecastCsv(text);
+  const detail = mockSource().source.stationDetail({ data }, '2026-10-11', '2026-10-11');
+  assert.equal(detail.station.rows.length, 1);
+  assert.equal(detail.series.length, 2);
+  assert.ok(Array.from(detail.series, series => series.run).every(run => run === '20261011T060000Z'));
+  assert.deepEqual(Array.from(detail.station.rows[0].values), [20, 21]);
+});
+
 test('historical files retain series identity, observations and gaps without dense null matrices', () => {
   const detail = day => { const data = parser.parseForecastCsv(csv(day)); return { ...data, station: data.stations[0] }; };
   const combined = history.combineStationDays([detail('2026-09-14'), detail('2026-09-12')]);
