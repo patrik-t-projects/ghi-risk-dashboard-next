@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url);
 const context = { exports: {}, require: name => {
   if (name.startsWith('react')) return require(name);
   if (name.endsWith('.module.css')) return { default: {} };
+  if (name === './ForecastDeltaCalculator') return { default: () => null };
   if (name === './StationPlots') return { default: () => null };
   if (name === '@/lib/forecastClient') return {};
   if (name === '@/lib/forecastExport') return {};
@@ -27,7 +28,8 @@ for (const mode of ['today', 'history']) test(`${mode} controls and map render b
   assert.match(html, /Map of Switzerland with canton boundaries/);
   assert.match(html, /Zoom map in/);
   assert.match(html, /Choose format/);
-  assert.match(html, /Loading station map/);
+  assert.match(html, /Delta calculator/);
+  assert.match(html, /Loading stations/);
   assert.doesNotMatch(html, /Supabase Storage/);
   if (mode === 'history') {
     assert.match(html, /From \(UTC day\)/);

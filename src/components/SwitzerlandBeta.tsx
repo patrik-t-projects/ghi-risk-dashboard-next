@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { downloadForecastCsv, fetchForecast } from "@/lib/forecastClient";
 import { exportPlotsPdf, exportPlotsPng, saveDownload } from "@/lib/forecastExport";
 import type { ForecastCatalog } from "@/lib/forecastCsv";
+import ForecastDeltaCalculator from "./ForecastDeltaCalculator";
 import StationPlots from "./StationPlots";
 import styles from "./SwitzerlandBeta.module.css";
 type Point = [number, number];
@@ -17,6 +18,7 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
   const [cantons, setCantons] = useState<Cantons | null>(null);
   const [lakes, setLakes] = useState<Lakes | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [workspace, setWorkspace] = useState<"map" | "calculator">("map");
   const [rangeError, setRangeError] = useState("");
   const [catalogError, setCatalogError] = useState("");
   const [mapError, setMapError] = useState("");
@@ -143,8 +145,13 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
         <button type="submit" className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">Show range</button>
       </form>}
     </div>
-    {(rangeError || catalogError || mapError) && <div role="alert" className="mb-4 rounded-xl border border-amber-300/30 p-4 text-sm text-amber-100">{rangeError || catalogError || mapError}<button className="ml-4 underline" onClick={() => { setRangeError(""); setAttempt(n => n + 1); }}>Retry</button></div>}
-    {loading && !catalogError && <p role="status" className="mb-4 text-sm text-slate-400">Loading station map…</p>}
+    <div className="mb-5 flex w-fit gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1" role="tablist" aria-label="Switzerland GHI tools">
+      <button type="button" role="tab" aria-selected={workspace === "map"} onClick={() => setWorkspace("map")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "map" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Map & forecasts</button>
+      <button type="button" role="tab" aria-selected={workspace === "calculator"} onClick={() => setWorkspace("calculator")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "calculator" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Delta calculator</button>
+    </div>
+    {(rangeError || catalogError || (workspace === "map" && mapError)) && <div role="alert" className="mb-4 rounded-xl border border-amber-300/30 p-4 text-sm text-amber-100">{rangeError || catalogError || mapError}<button className="ml-4 underline" onClick={() => { setRangeError(""); setAttempt(n => n + 1); }}>Retry</button></div>}
+    {loading && !catalogError && <p role="status" className="mb-4 text-sm text-slate-400">Loading stations…</p>}
+    {workspace === "map" && <>
     <section className={styles.mapCard} aria-label="Switzerland station map">
       <div className="absolute left-5 top-5 z-10 flex items-center gap-4 text-xs text-slate-300"><span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-red-500" />GHI weather stations</span></div>
       <div className="absolute right-4 top-4 z-10 flex overflow-hidden rounded-lg border border-white/15 bg-[#0d1d2b]/90" aria-label="Map zoom controls">
@@ -171,5 +178,7 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
     {exportError && <div role="alert" className="mt-3 text-sm text-amber-200">{exportError}</div>}
     {selectedStations.map(station => <StationPlots key={station.id} station={station} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} onClose={() => choose(station.id)} />)}
     {selectedStations.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Click a red station marker to open its plots. Click again to hide them.</div>}
+    </>}
+    {workspace === "calculator" && catalog && <ForecastDeltaCalculator stations={catalog.stations} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} />}
   </div>;
 }
