@@ -2,17 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchForecast } from "@/lib/forecastClient";
-import { combineStationDays } from "@/lib/forecastHistory";
-import { comparisonRunColor, comparisonRunOptions, compactRunLabel } from "@/lib/forecastComparison";
-import type { StationForecastResponse } from "@/lib/forecastCsv";
+import { comparisonRunColor, compactRunLabel } from "@/lib/forecastComparison";
+import type { ForecastRuntimeCatalog } from "@/lib/forecastCsv";
 
 type LoadedRuns = { key: string; runs: string[] };
 
-export default function ComparisonRuntimePicker({ stationId, mode, from, to, refreshToken, selectedRuns, onChange }: {
+export default function ComparisonRuntimePicker({ stationId, mode, refreshToken, selectedRuns, onChange }: {
   stationId: string;
   mode: "today" | "history";
-  from: string;
-  to: string;
   refreshToken: number;
   selectedRuns: string[];
   onChange: (runs: string[]) => void;
@@ -22,7 +19,7 @@ export default function ComparisonRuntimePicker({ stationId, mode, from, to, ref
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const requestKey = `${stationId}:${mode}:${from}:${to}`;
+  const requestKey = `${stationId}:${mode}`;
   const runs = useMemo(() => loaded?.key === requestKey ? loaded.runs : [], [loaded, requestKey]);
   const availableCandidate = runs.includes(candidate) && !selectedRuns.includes(candidate)
     ? candidate : runs.find(run => !selectedRuns.includes(run)) ?? "";
@@ -35,11 +32,8 @@ export default function ComparisonRuntimePicker({ stationId, mode, from, to, ref
       if (pending || document.hidden) return;
       pending = true; setLoading(true); setError("");
       try {
-        const params: Record<string, string> = { view: mode, station: stationId };
-        if (mode === "history") Object.assign(params, { from, to });
-        const result = await fetchForecast<StationForecastResponse>(params, controller.signal);
-        const combined = combineStationDays(result.segments);
-        if (!controller.signal.aborted) setLoaded({ key: requestKey, runs: comparisonRunOptions(combined.segments) });
+        const result = await fetchForecast<ForecastRuntimeCatalog>({ view: "comparison-runtimes", mode, station: stationId }, controller.signal);
+        if (!controller.signal.aborted) setLoaded({ key: requestKey, runs: result.runs });
       } catch (caught) {
         if (!controller.signal.aborted) { setLoaded(null); setError(caught instanceof Error ? caught.message : "Could not load model runtimes."); }
       } finally {
@@ -55,7 +49,7 @@ export default function ComparisonRuntimePicker({ stationId, mode, from, to, ref
       if (interval) clearInterval(interval);
       document.removeEventListener("visibilitychange", load);
     };
-  }, [stationId, mode, from, to, requestKey, refreshToken, retry]);
+  }, [stationId, mode, requestKey, refreshToken, retry]);
 
   const unavailableSelections = useMemo(() => selectedRuns.filter(run => !runs.includes(run)), [selectedRuns, runs]);
   return <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4" aria-label="Comparison runtime selection">
@@ -72,7 +66,7 @@ export default function ComparisonRuntimePicker({ stationId, mode, from, to, ref
       <span className="pb-2 text-xs text-slate-500">{selectedRuns.length} / 6 selected</span>
     </div>
     {error && <div role="alert" className="mt-3 text-sm text-amber-200">{error}<button type="button" className="ml-3 underline" onClick={() => setRetry(value => value + 1)}>Retry</button></div>}
-    {unavailableSelections.length > 0 && <p className="mt-3 text-xs text-amber-200">Some selected runtimes are unavailable in this date range. Remove them or select another range.</p>}
+    {unavailableSelections.length > 0 && <p className="mt-3 text-xs text-amber-200">Some selected runtimes are no longer available in storage. Remove them or refresh the list.</p>}
     {selectedRuns.length > 0 && <div className="mt-4 space-y-2" aria-label="Selected comparison runtimes">
       {selectedRuns.map(run => <div key={run} className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#0d1d2b]/70 px-3 py-2 text-sm">
         <span className="h-0.5 w-6" style={{ backgroundColor: comparisonRunColor(run, selectedRuns) }} />

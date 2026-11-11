@@ -15,8 +15,11 @@ function compile(file, require = () => { throw Error('Unexpected dependency'); }
 
 const parser = compile('src/lib/forecastCsv.ts');
 const history = compile('src/lib/forecastHistory.ts');
-const csv = (day, value = 1) => 'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1\n' +
-  `${day}T00:15:00Z,CHZ,"47.18,8.46",ICON1,12.09.2026 00 UTC,0,${value},2\n`;
+const csv = (day, value = 1, runtimeDay = day) => {
+  const [year, month, date] = runtimeDay.split('-');
+  return 'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1\n' +
+    `${day}T00:15:00Z,CHZ,"47.18,8.46",ICON1,${date}.${month}.${year} 00 UTC,0,${value},2\n`;
+};
 
 function mockSource() {
   let daily = { name: 'daily.csv', id: 'daily-1', updated_at: 'v1', metadata: { size: 100, eTag: '1' } };
@@ -32,7 +35,7 @@ function mockSource() {
       assert.ok(options.cacheNonce);
       assert.equal(parameters.cache, 'no-store');
       const content = path.endsWith('daily.csv') ? csv('2026-10-09', daily.updated_at === 'v1' ? 1 : 9) :
-        path.endsWith('2026-09.csv') ? csv('2026-09-12', 2) : csv('2026-10-01', 3);
+        path.endsWith('2026-09.csv') ? csv('2026-09-12', 2) : csv('2026-10-08', 3);
       return { data: new Blob([content]), error: null };
     },
   };
@@ -76,6 +79,27 @@ test('historical ranges download only overlapping monthly files for one station'
   assert.deepEqual(Array.from(mock.source.monthsInRange('2026-08-31', '2026-10-01')), ['2026-08', '2026-09', '2026-10']);
 });
 
+test('today comparison runtimes include yesterday and today but exclude older stored runs', async () => {
+  const mock = mockSource();
+  const result = await mock.source.loadComparisonRuntimeCatalog('CHZ', 'today', '2026-10-09');
+  assert.deepEqual(Array.from(result.runs), ['20261009T000000Z', '20261008T000000Z']);
+  assert.deepEqual(mock.downloads, [
+    'forecast/stations/CHZ/monthly/2026-10.csv',
+    'forecast/stations/CHZ/daily.csv',
+  ]);
+});
+
+test('historical comparison runtime catalog scans every stored station month plus daily data', async () => {
+  const mock = mockSource();
+  const result = await mock.source.loadComparisonRuntimeCatalog('CHZ', 'history', '2026-10-09');
+  assert.deepEqual(Array.from(result.runs), ['20261009T000000Z', '20261008T000000Z', '20260912T000000Z']);
+  assert.deepEqual(mock.downloads, [
+    'forecast/stations/CHZ/monthly/2026-09.csv',
+    'forecast/stations/CHZ/monthly/2026-10.csv',
+    'forecast/stations/CHZ/daily.csv',
+  ]);
+});
+
 test('missing and unknown station files fail without an all-stations fallback', async () => {
   const mock = mockSource();
   mock.removeDaily();
@@ -106,8 +130,20 @@ test('single-day history removes month-wide runtimes outside the selected runtim
   assert.deepEqual(Array.from(detail.station.rows[0].values), [20, 21]);
 });
 
+test('comparison filtering retains an explicitly selected runtime outside the displayed day', () => {
+  const text = [
+    'datetime,station_abbr,grid_coordinates,Model,Runtime,measured_ghi,control,member_1',
+    '2026-10-11T12:15:00Z,CHZ,"47.18,8.46",ICON1,01.10.2026 06 UTC,200,10,11',
+    '2026-10-11T12:15:00Z,CHZ,"47.18,8.46",ICON1,11.10.2026 06 UTC,200,20,21',
+  ].join('\n');
+  const data = parser.parseForecastCsv(text);
+  const detail = mockSource().source.stationDetail({ data }, '2026-10-11', '2026-10-11', new Set(['20261001T060000Z']));
+  assert.ok(Array.from(detail.series, series => series.run).every(run => run === '20261001T060000Z'));
+  assert.deepEqual(Array.from(detail.station.rows[0].values), [10, 11]);
+});
+
 test('historical files retain series identity, observations and gaps without dense null matrices', () => {
-  const detail = day => { const data = parser.parseForecastCsv(csv(day)); return { ...data, station: data.stations[0] }; };
+  const detail = day => { const data = parser.parseForecastCsv(csv(day, 1, '2026-09-12')); return { ...data, station: data.stations[0] }; };
   const combined = history.combineStationDays([detail('2026-09-14'), detail('2026-09-12')]);
   assert.equal(combined.series.length, 2);
   assert.equal(combined.segments.length, 2);

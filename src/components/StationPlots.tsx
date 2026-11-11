@@ -23,6 +23,7 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const comparisonKey = comparisonRuns?.join(",") ?? "";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -33,7 +34,9 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
       setLoading(true);
       setError("");
       try {
-        const params: Record<string, string> = { view: mode, station: station.id };
+        const params: Record<string, string> = comparisonKey
+          ? { view: "comparison", mode, station: station.id, runs: comparisonKey }
+          : { view: mode, station: station.id };
         if (mode === "history") Object.assign(params, { from, to });
         const result = await fetchForecast<StationForecastResponse>(params, controller.signal);
         if (!controller.signal.aborted) setData(combineStationDays(result.segments));
@@ -52,7 +55,7 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
       if (interval) clearInterval(interval);
       document.removeEventListener("visibilitychange", load);
     };
-  }, [station.id, mode, from, to, refreshToken, attempt]);
+  }, [station.id, mode, from, to, refreshToken, attempt, comparisonKey]);
   const yRange = data ? sharedGhiRange(data.segments, comparisonRuns) : undefined;
 
   return <section className="mt-7 pb-5" aria-label={`${station.name} forecast comparison`}>

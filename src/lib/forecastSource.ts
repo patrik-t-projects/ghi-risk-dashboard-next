@@ -47,29 +47,36 @@ export type StationForecastSnapshot = { file: StationForecastFile; data: Forecas
 const versionFor = (item: StorageItem) => createHash("sha256")
   .update(JSON.stringify([item.id, item.updated_at, item.metadata])).digest("hex").slice(0, 20);
 
-async function listStationFiles(station: string, view: "today" | "history", from: string, to: string): Promise<StationForecastFile[]> {
+async function listDailyFile(station: string, period: string): Promise<StationForecastFile[]> {
   if (!knownForecastStation(station)) throw new ForecastSourceError("Unknown forecast station.", 404, "station_not_found");
   const bucket = storage();
-  if (view === "today") {
-    const { data, error } = await bucket.list(`forecast/stations/${station}`, {
-      limit: 100, offset: 0, sortBy: { column: "name", order: "asc" }, search: "daily.csv",
-    });
-    if (error || !data) throw new ForecastSourceError(`Cannot read the daily forecast for ${station}.`);
-    const item = (data as StorageItem[]).find(candidate => candidate.name === "daily.csv" && candidate.id);
-    return item ? [{ kind: "daily", period: from, path: `forecast/stations/${station}/daily.csv`,
-      version: versionFor(item), updatedAt: item.updated_at ?? item.created_at ?? "" }] : [];
-  }
-  const wanted = new Set(monthsInRange(from, to));
+  const { data, error } = await bucket.list(`forecast/stations/${station}`, {
+    limit: 100, offset: 0, sortBy: { column: "name", order: "asc" }, search: "daily.csv",
+  });
+  if (error || !data) throw new ForecastSourceError(`Cannot read the daily forecast for ${station}.`);
+  const item = (data as StorageItem[]).find(candidate => candidate.name === "daily.csv" && candidate.id);
+  return item ? [{ kind: "daily", period, path: `forecast/stations/${station}/daily.csv`,
+    version: versionFor(item), updatedAt: item.updated_at ?? item.created_at ?? "" }] : [];
+}
+
+async function listMonthlyFiles(station: string, wanted?: ReadonlySet<string>): Promise<StationForecastFile[]> {
+  if (!knownForecastStation(station)) throw new ForecastSourceError("Unknown forecast station.", 404, "station_not_found");
+  const bucket = storage();
   const { data, error } = await bucket.list(`forecast/stations/${station}/monthly`, {
     limit: 1000, offset: 0, sortBy: { column: "name", order: "asc" },
   });
   if (error || !data) throw new ForecastSourceError(`Cannot read historical forecasts for ${station}.`);
   return (data as StorageItem[]).flatMap(item => {
     const match = /^(\d{4}-\d{2})\.csv$/.exec(item.name);
-    if (!match || !item.id || !wanted.has(match[1]) || !validMonth(match[1])) return [];
+    if (!match || !item.id || (wanted && !wanted.has(match[1])) || !validMonth(match[1])) return [];
     return [{ kind: "monthly" as const, period: match[1], path: `forecast/stations/${station}/monthly/${item.name}`,
       version: versionFor(item), updatedAt: item.updated_at ?? item.created_at ?? "" }];
   }).sort((a, b) => a.period.localeCompare(b.period));
+}
+
+async function listStationFiles(station: string, view: "today" | "history", from: string, to: string): Promise<StationForecastFile[]> {
+  if (view === "today") return listDailyFile(station, from);
+  return listMonthlyFiles(station, new Set(monthsInRange(from, to)));
 }
 
 const snapshots = new Map<string, Promise<StationForecastSnapshot>>();
@@ -114,7 +121,42 @@ export async function loadStationForecast(station: string, view: "today" | "hist
   return Promise.all(files.map(file => loadSnapshot(station, file)));
 }
 
-export function stationDetail(snapshot: StationForecastSnapshot, from: string, to: string): StationDetail | null {
+function uniqueFiles(files: StationForecastFile[]): StationForecastFile[] {
+  return [...new Map(files.map(file => [file.path, file])).values()];
+}
+
+export async function loadComparisonRuntimeCatalog(station: string, mode: "today" | "history", today: string) {
+  const daily = await listDailyFile(station, today);
+  const monthly = mode === "history"
+    ? await listMonthlyFiles(station)
+    : await listMonthlyFiles(station, new Set(monthsInRange(previousDay(today), today)));
+  const files = uniqueFiles([...monthly, ...daily]);
+  if (!files.length) throw new ForecastSourceError(`No forecast has been uploaded for ${station}.`, 404, "station_not_found");
+  const loaded = await Promise.all(files.map(file => loadSnapshot(station, file)));
+  const allowedDays = mode === "today" ? new Set([previousDay(today).replaceAll("-", ""), today.replaceAll("-", "")]) : null;
+  const runs = new Set<string>();
+  for (const snapshot of loaded) for (const series of snapshot.data.series) {
+    if (!allowedDays || allowedDays.has(series.run.slice(0, 8))) runs.add(series.run);
+  }
+  return { runs: [...runs].sort().reverse(), snapshots: loaded };
+}
+
+export async function loadComparisonForecast(station: string, mode: "today" | "history", from: string, to: string) {
+  const monthly = await listMonthlyFiles(station, new Set(monthsInRange(from, to)));
+  const daily = mode === "today" ? await listDailyFile(station, from) : [];
+  const files = uniqueFiles([...monthly, ...daily]);
+  if (!files.length) throw new ForecastSourceError(`No forecast has been uploaded for ${station}.`, 404, "station_not_found");
+  return Promise.all(files.map(file => loadSnapshot(station, file)));
+}
+
+function previousDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export function stationDetail(snapshot: StationForecastSnapshot, from: string, to: string,
+  allowedRuns?: ReadonlySet<string>): StationDetail | null {
   const start = Date.parse(`${from}T00:00:00Z`);
   const end = Date.parse(`${to}T00:00:00Z`) + 86400000;
   const source = snapshot.data.stations[0];
@@ -125,7 +167,7 @@ export function stationDetail(snapshot: StationForecastSnapshot, from: string, t
   if (!rangeRows.length) return null;
   const activeSeriesIndexes = snapshot.data.series.flatMap((series, index) => {
     const runDay = `${series.run.slice(0, 4)}-${series.run.slice(4, 6)}-${series.run.slice(6, 8)}`;
-    return runDay >= from && runDay <= to &&
+    return (allowedRuns ? allowedRuns.has(series.run) : runDay >= from && runDay <= to) &&
       rangeRows.some(row => row.values[index] !== null && row.values[index] !== undefined) ? [index] : [];
   });
   const series = activeSeriesIndexes.map(index => snapshot.data.series[index]);

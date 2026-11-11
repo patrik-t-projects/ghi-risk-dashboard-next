@@ -7,6 +7,7 @@ export type ForecastData = { series: ForecastSeries[]; stations: StationForecast
 export type StationDetail = { station: StationForecast; series: ForecastSeries[]; start: string; end: string };
 export type ForecastCatalog = { stations: StationSummary[]; today: string };
 export type StationForecastResponse = { segments: StationDetail[]; version: string };
+export type ForecastRuntimeCatalog = { runs: string[]; version: string };
 export type ForecastSegments = { series: ForecastSeries[]; rows: StationForecast["rows"] }[];
 
 // Coordinates contain commas inside quoted fields. Do not split CSV lines on commas.
