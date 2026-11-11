@@ -1,16 +1,9 @@
 import type { ForecastSegments } from "./forecastCsv";
-import { runTimestamp } from "./forecastCalculator";
 
 export const comparisonColors = ["#2563eb", "#f97316", "#7c3aed", "#dc2626", "#0891b2", "#db2777"] as const;
 
 export function compactRunLabel(run: string): string {
   return `${run.slice(0, 4)}-${run.slice(4, 6)}-${run.slice(6, 8)}T${run.slice(9, 11)}`;
-}
-
-export function comparisonRunOptions(segments: ForecastSegments): string[] {
-  const runs = new Set<string>();
-  for (const segment of segments) for (const series of segment.series) runs.add(series.run);
-  return [...runs].sort((a, b) => runTimestamp(b) - runTimestamp(a));
 }
 
 export function comparisonRunColor(run: string, selectedRuns: readonly string[]): string {

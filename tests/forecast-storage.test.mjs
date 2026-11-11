@@ -21,7 +21,7 @@ const csv = (day, value = 1, runtimeDay = day) => {
     `${day}T00:15:00Z,CHZ,"47.18,8.46",ICON1,${date}.${month}.${year} 00 UTC,0,${value},2\n`;
 };
 
-function mockSource() {
+function mockSource({ dailyDay = '2026-10-09', octoberDay = '2026-10-08', octoberRuntime = '2026-10-08' } = {}) {
   let daily = { name: 'daily.csv', id: 'daily-1', updated_at: 'v1', metadata: { size: 100, eTag: '1' } };
   const monthly = [
     { name: '2026-09.csv', id: 'month-9', updated_at: 'v1', metadata: { eTag: '9' } },
@@ -34,8 +34,8 @@ function mockSource() {
       downloads.push(path);
       assert.ok(options.cacheNonce);
       assert.equal(parameters.cache, 'no-store');
-      const content = path.endsWith('daily.csv') ? csv('2026-10-09', daily.updated_at === 'v1' ? 1 : 9) :
-        path.endsWith('2026-09.csv') ? csv('2026-09-12', 2) : csv('2026-10-08', 3);
+      const content = path.endsWith('daily.csv') ? csv(dailyDay, daily.updated_at === 'v1' ? 1 : 9) :
+        path.endsWith('2026-09.csv') ? csv('2026-09-12', 2) : csv(octoberDay, 3, octoberRuntime);
       return { data: new Blob([content]), error: null };
     },
   };
@@ -89,15 +89,45 @@ test('today comparison runtimes include yesterday and today but exclude older st
   ]);
 });
 
-test('historical comparison runtime catalog scans every stored station month plus daily data', async () => {
+test('historical comparison runtime catalog uses monthly archives only and excludes today', async () => {
   const mock = mockSource();
   const result = await mock.source.loadComparisonRuntimeCatalog('CHZ', 'history', '2026-10-09');
-  assert.deepEqual(Array.from(result.runs), ['20261009T000000Z', '20261008T000000Z', '20260912T000000Z']);
+  assert.deepEqual(Array.from(result.runs), ['20261008T000000Z', '20260912T000000Z']);
   assert.deepEqual(mock.downloads, [
     'forecast/stations/CHZ/monthly/2026-09.csv',
     'forecast/stations/CHZ/monthly/2026-10.csv',
+  ]);
+
+  const todayAlreadyArchived = mockSource({ octoberDay: '2026-10-09', octoberRuntime: '2026-10-09' });
+  const filtered = await todayAlreadyArchived.source.loadComparisonRuntimeCatalog('CHZ', 'history', '2026-10-09');
+  assert.deepEqual(Array.from(filtered.runs), ['20260912T000000Z']);
+});
+
+test('today comparison gets current runs from daily and previous runs from their monthly archive', async () => {
+  const current = mockSource();
+  await current.source.loadComparisonForecast('CHZ', 'today', '2026-10-09', new Set(['20261009T000000Z']));
+  assert.deepEqual(current.downloads, ['forecast/stations/CHZ/daily.csv']);
+
+  const previous = mockSource();
+  await previous.source.loadComparisonForecast('CHZ', 'today', '2026-10-09', new Set(['20261008T000000Z']));
+  assert.deepEqual(previous.downloads, [
+    'forecast/stations/CHZ/monthly/2026-10.csv',
     'forecast/stations/CHZ/daily.csv',
   ]);
+});
+
+test('historical comparison loads only the archive months of selected historical runtimes', async () => {
+  const mock = mockSource();
+  await mock.source.loadComparisonForecast('CHZ', 'history', '2026-10-09', new Set(['20260912T000000Z']));
+  assert.deepEqual(mock.downloads, ['forecast/stations/CHZ/monthly/2026-09.csv']);
+});
+
+test('an archived runtime may contain forecast timestamps in the following month', async () => {
+  const mock = mockSource({ dailyDay: '2026-11-01', octoberDay: '2026-11-01', octoberRuntime: '2026-10-31' });
+  const snapshots = await mock.source.loadComparisonForecast('CHZ', 'today', '2026-11-01', new Set(['20261031T000000Z']));
+  const archive = snapshots.find(snapshot => snapshot.file.kind === 'monthly');
+  assert.equal(archive.file.period, '2026-10');
+  assert.equal(archive.data.stations[0].rows[0].time, '2026-11-01T00:15:00Z');
 });
 
 test('missing and unknown station files fail without an all-stations fallback', async () => {

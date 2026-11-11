@@ -51,13 +51,26 @@ export async function GET(request: Request) {
       runs.some(run => !/^\d{8}T\d{6}Z$/.test(run)))) {
     return Response.json({ error: "Select between one and six valid model runtimes." }, { status: 400, headers });
   }
+  const yesterday = new Date(`${today}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const permittedTodayRunDays = new Set([yesterday.toISOString().slice(0, 10).replaceAll("-", ""), today.replaceAll("-", "")]);
+  if (view === "comparison" && (periodMode === "today"
+      ? runs.some(run => !permittedTodayRunDays.has(run.slice(0, 8)))
+      : runs.some(run => run.slice(0, 8) >= today.replaceAll("-", "")))) {
+    return Response.json({ error: "The selected runtime is unavailable for this comparison period." }, { status: 400, headers });
+  }
   try {
-    const snapshots = view === "comparison"
-      ? await loadComparisonForecast(station, periodMode, from, to)
-      : await loadStationForecast(station, periodMode, from, to);
     const allowedRuns = view === "comparison" ? new Set(runs) : undefined;
+    const snapshots = view === "comparison"
+      ? await loadComparisonForecast(station, periodMode, from, allowedRuns!)
+      : await loadStationForecast(station, periodMode, from, to);
     const segments = snapshots.flatMap(snapshot => {
-      const detail = stationDetail(snapshot, from, to, allowedRuns);
+      const snapshotRuns = view === "comparison" && periodMode === "today"
+        ? new Set(runs.filter(run => snapshot.file.kind === "daily"
+          ? run.slice(0, 8) === today.replaceAll("-", "")
+          : run.slice(0, 8) < today.replaceAll("-", "")))
+        : allowedRuns;
+      const detail = stationDetail(snapshot, from, to, snapshotRuns);
       return detail ? [detail] : [];
     });
     if (!segments.length) return Response.json({ error: "No forecast data is available for this range.", code: "station_not_found" },

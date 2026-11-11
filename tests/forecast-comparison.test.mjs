@@ -12,11 +12,7 @@ function compile(file, require = name => { throw Error(`Unexpected dependency: $
   return context.exports;
 }
 
-const calculator = compile('src/lib/forecastCalculator.ts');
-const comparison = compile('src/lib/forecastComparison.ts', name => {
-  if (name === './forecastCalculator') return calculator;
-  throw Error(name);
-});
+const comparison = compile('src/lib/forecastComparison.ts');
 
 const run00 = '20261111T000000Z';
 const run06 = '20261111T060000Z';
@@ -34,8 +30,7 @@ const segments = [{
   ],
 }];
 
-test('comparison exposes the union of exact runtimes for both models newest first', () => {
-  assert.deepEqual(Array.from(comparison.comparisonRunOptions(segments)), [run12, run06, run00]);
+test('comparison formats exact runtime labels', () => {
   assert.equal(comparison.compactRunLabel(run00), '2026-11-11T00');
 });
 

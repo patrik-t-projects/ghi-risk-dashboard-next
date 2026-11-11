@@ -101,9 +101,11 @@ async function loadSnapshot(station: string, file: StationForecastFile): Promise
     }
     const start = Date.parse(`${file.period}${file.kind === "monthly" ? "-01" : ""}T00:00:00Z`);
     const endDate = new Date(start);
-    if (file.kind === "monthly") endDate.setUTCMonth(endDate.getUTCMonth() + 1);
-    else endDate.setUTCDate(endDate.getUTCDate() + 1);
-    if (Date.parse(data.start) < start || Date.parse(data.end) >= endDate.getTime()) {
+    endDate.setUTCDate(endDate.getUTCDate() + 1);
+    const invalidPeriod = file.kind === "monthly"
+      ? data.series.some(series => `${series.run.slice(0, 4)}-${series.run.slice(4, 6)}` !== file.period)
+      : Date.parse(data.start) < start || Date.parse(data.end) >= endDate.getTime();
+    if (invalidPeriod) {
       throw new ForecastSourceError(`CSV timestamps do not match ${file.period}.`, 422);
     }
     return { file, data, text };
@@ -126,7 +128,7 @@ function uniqueFiles(files: StationForecastFile[]): StationForecastFile[] {
 }
 
 export async function loadComparisonRuntimeCatalog(station: string, mode: "today" | "history", today: string) {
-  const daily = await listDailyFile(station, today);
+  const daily = mode === "today" ? await listDailyFile(station, today) : [];
   const monthly = mode === "history"
     ? await listMonthlyFiles(station)
     : await listMonthlyFiles(station, new Set(monthsInRange(previousDay(today), today)));
@@ -134,15 +136,20 @@ export async function loadComparisonRuntimeCatalog(station: string, mode: "today
   if (!files.length) throw new ForecastSourceError(`No forecast has been uploaded for ${station}.`, 404, "station_not_found");
   const loaded = await Promise.all(files.map(file => loadSnapshot(station, file)));
   const allowedDays = mode === "today" ? new Set([previousDay(today).replaceAll("-", ""), today.replaceAll("-", "")]) : null;
+  const compactToday = today.replaceAll("-", "");
   const runs = new Set<string>();
   for (const snapshot of loaded) for (const series of snapshot.data.series) {
-    if (!allowedDays || allowedDays.has(series.run.slice(0, 8))) runs.add(series.run);
+    const runDay = series.run.slice(0, 8);
+    if ((allowedDays?.has(runDay)) || (!allowedDays && runDay < compactToday)) runs.add(series.run);
   }
   return { runs: [...runs].sort().reverse(), snapshots: loaded };
 }
 
-export async function loadComparisonForecast(station: string, mode: "today" | "history", from: string, to: string) {
-  const monthly = await listMonthlyFiles(station, new Set(monthsInRange(from, to)));
+export async function loadComparisonForecast(station: string, mode: "today" | "history", from: string,
+  selectedRuns: ReadonlySet<string>) {
+  const archivedRuns = [...selectedRuns].filter(run => mode === "history" || run.slice(0, 8) < from.replaceAll("-", ""));
+  const archiveMonths = new Set(archivedRuns.map(run => `${run.slice(0, 4)}-${run.slice(4, 6)}`));
+  const monthly = archiveMonths.size ? await listMonthlyFiles(station, archiveMonths) : [];
   const daily = mode === "today" ? await listDailyFile(station, from) : [];
   const files = uniqueFiles([...monthly, ...daily]);
   if (!files.length) throw new ForecastSourceError(`No forecast has been uploaded for ${station}.`, 404, "station_not_found");
