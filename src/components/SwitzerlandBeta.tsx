@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { downloadForecastCsv, fetchForecast } from "@/lib/forecastClient";
 import { exportPlotsPdf, exportPlotsPng, saveDownload } from "@/lib/forecastExport";
 import type { ForecastCatalog } from "@/lib/forecastCsv";
+import ComparisonRuntimePicker from "./ComparisonRuntimePicker";
 import ForecastDeltaCalculator from "./ForecastDeltaCalculator";
 import StationPlots from "./StationPlots";
 import styles from "./SwitzerlandBeta.module.css";
@@ -18,7 +19,8 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
   const [cantons, setCantons] = useState<Cantons | null>(null);
   const [lakes, setLakes] = useState<Lakes | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
-  const [workspace, setWorkspace] = useState<"map" | "calculator">("map");
+  const [workspace, setWorkspace] = useState<"forecasts" | "comparison" | "calculator">("forecasts");
+  const [comparisonSelection, setComparisonSelection] = useState<{ key: string; runs: string[] } | null>(null);
   const [rangeError, setRangeError] = useState("");
   const [catalogError, setCatalogError] = useState("");
   const [mapError, setMapError] = useState("");
@@ -36,6 +38,8 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
   const today = catalog?.today ?? new Date().toISOString().slice(0, 10);
   const activeFrom = mode === "today" ? today : range.from;
   const activeTo = mode === "today" ? today : range.to;
+  const comparisonKey = `${mode}:${activeFrom}:${activeTo}`;
+  const comparisonRuns = comparisonSelection?.key === comparisonKey ? comparisonSelection.runs : [];
   useEffect(() => {
     const controller = new AbortController();
     async function check() {
@@ -98,7 +102,7 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
     };
     element.addEventListener("wheel", wheel, { passive: false });
     return () => element.removeEventListener("wheel", wheel);
-  }, [zoomMap]);
+  }, [zoomMap, workspace]);
   function startMapDrag(event: ReactPointerEvent<SVGSVGElement>) {
     if ((event.target as Element).closest("[data-station-marker]")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -146,12 +150,11 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
       </form>}
     </div>
     <div className="mb-5 flex w-fit gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1" role="tablist" aria-label="Switzerland GHI tools">
-      <button type="button" role="tab" aria-selected={workspace === "map"} onClick={() => setWorkspace("map")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "map" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Map & forecasts</button>
-      <button type="button" role="tab" aria-selected={workspace === "calculator"} onClick={() => setWorkspace("calculator")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "calculator" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Delta calculator</button>
+      {(["forecasts", "comparison", "calculator"] as const).map(view => <button key={view} type="button" role="tab" aria-selected={workspace === view} onClick={() => setWorkspace(view)} className={`rounded-lg px-4 py-2 text-sm ${workspace === view ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>{view === "forecasts" ? "Forecasts" : view === "comparison" ? "Comparison" : "Calculator"}</button>)}
     </div>
-    {(rangeError || catalogError || (workspace === "map" && mapError)) && <div role="alert" className="mb-4 rounded-xl border border-amber-300/30 p-4 text-sm text-amber-100">{rangeError || catalogError || mapError}<button className="ml-4 underline" onClick={() => { setRangeError(""); setAttempt(n => n + 1); }}>Retry</button></div>}
+    {(rangeError || catalogError || (workspace !== "calculator" && mapError)) && <div role="alert" className="mb-4 rounded-xl border border-amber-300/30 p-4 text-sm text-amber-100">{rangeError || catalogError || mapError}<button className="ml-4 underline" onClick={() => { setRangeError(""); setAttempt(n => n + 1); }}>Retry</button></div>}
     {loading && !catalogError && <p role="status" className="mb-4 text-sm text-slate-400">Loading stations…</p>}
-    {workspace === "map" && <>
+    {workspace !== "calculator" && <>
     <section className={styles.mapCard} aria-label="Switzerland station map">
       <div className="absolute left-5 top-5 z-10 flex items-center gap-4 text-xs text-slate-300"><span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-red-500" />GHI weather stations</span></div>
       <div className="absolute right-4 top-4 z-10 flex overflow-hidden rounded-lg border border-white/15 bg-[#0d1d2b]/90" aria-label="Map zoom controls">
@@ -174,9 +177,14 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
       </svg>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-5 py-3 text-[10px] text-slate-500"><span>26 cantons · Switzerland</span><span><a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer" className="hover:text-slate-300">Boundaries: © swisstopo · geoBoundaries (2022)</a><span className="mx-2">·</span><a href="https://www.swisstopo.admin.ch/en/landscape-model-swisstlmregio" target="_blank" rel="noreferrer" className="hover:text-slate-300">Lakes: © swisstopo · swissTLMRegio (2025)</a></span></div>
     </section>
-    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><label htmlFor="station-picker" className="text-slate-400">Select a station</label><select id="station-picker" value="" onChange={e => { if (e.target.value) choose(e.target.value); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200"><option value="">Choose station…</option>{catalog?.stations.map(s => <option key={s.id} value={s.id}>{s.id}{selected.includes(s.id) ? " — selected (hide)" : ""}</option>)}</select><span className="text-xs text-slate-500">{selected.length} selected · Hover for station labels</span><label htmlFor="forecast-export" className="ml-auto text-slate-400">Download</label><select id="forecast-export" value="" disabled={!selected.length || Boolean(exporting)} onChange={event => { const format = event.target.value as "png" | "pdf" | "csv"; if (format) void exportSelection(format); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"><option value="">{exporting ? `Creating ${exporting.toUpperCase()}…` : "Choose format…"}</option><option value="png">PNG — selected plots</option><option value="pdf">PDF — selected plots</option><option value="csv">CSV — selected stations</option></select></div>
+    {workspace === "comparison" && catalog && <ComparisonRuntimePicker
+      stationId={selected[0] ?? catalog.stations.find(station => station.id === "CHZ")?.id ?? catalog.stations[0]?.id ?? ""}
+      mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} selectedRuns={comparisonRuns}
+      onChange={runs => setComparisonSelection({ key: comparisonKey, runs })} />}
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><label htmlFor="station-picker" className="text-slate-400">Select a station</label><select id="station-picker" value="" onChange={e => { if (e.target.value) choose(e.target.value); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200"><option value="">Choose station…</option>{catalog?.stations.map(s => <option key={s.id} value={s.id}>{s.id}{selected.includes(s.id) ? " — selected (hide)" : ""}</option>)}</select><span className="text-xs text-slate-500">{selected.length} selected · Hover for station labels</span><label htmlFor="forecast-export" className="ml-auto text-slate-400">Download</label><select id="forecast-export" value="" disabled={!selected.length || Boolean(exporting) || (workspace === "comparison" && comparisonRuns.length === 0)} onChange={event => { const format = event.target.value as "png" | "pdf" | "csv"; if (format) void exportSelection(format); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"><option value="">{exporting ? `Creating ${exporting.toUpperCase()}…` : "Choose format…"}</option><option value="png">PNG — selected plots</option><option value="pdf">PDF — selected plots</option><option value="csv">CSV — selected stations</option></select></div>
     {exportError && <div role="alert" className="mt-3 text-sm text-amber-200">{exportError}</div>}
-    {selectedStations.map(station => <StationPlots key={station.id} station={station} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} onClose={() => choose(station.id)} />)}
+    {(workspace === "forecasts" || comparisonRuns.length > 0) && selectedStations.map(station => <StationPlots key={station.id} station={station} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} onClose={() => choose(station.id)} comparisonRuns={workspace === "comparison" ? comparisonRuns : undefined} />)}
+    {workspace === "comparison" && selectedStations.length > 0 && comparisonRuns.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Select at least one model runtime to show the comparison plots.</div>}
     {selectedStations.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Click a red station marker to open its plots. Click again to hide them.</div>}
     </>}
     {workspace === "calculator" && catalog && <ForecastDeltaCalculator stations={catalog.stations} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} />}

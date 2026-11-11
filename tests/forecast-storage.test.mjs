@@ -151,7 +151,7 @@ test('multi-day historical legends group runs by UTC hour and members by hour pl
 
 test('Actual GHI hover uses the native green line trace', () => {
   const source = fs.readFileSync('src/components/ForecastChart.tsx', 'utf8');
-  assert.match(source, /\.\.\.actual\.line, hovertemplate: "Actual GHI:/);
+  assert.match(source, /\.\.\.actual\.line, hovertemplate:/);
   assert.match(source, /line: \{ color: "#16a34a", width: 3\.2 \}/);
   assert.doesNotMatch(source, /<span style=.*Actual GHI/);
 });

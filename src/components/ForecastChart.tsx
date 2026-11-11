@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
 import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints } from "@/lib/forecastHistory";
+import { comparisonRunColor, observationDays } from "@/lib/forecastComparison";
 
-export default function ForecastChart({ data, station, model, period = "" }: {
-  data: Pick<ForecastData, "series"> & { segments?: ForecastSegments }; station: StationForecast; model: "icon_ch1" | "icon_ch2"; period?: string;
+const noComparisonRuns: string[] = [];
+
+export default function ForecastChart({ data, station, model, period = "", yRange, comparisonRuns }: {
+  data: Pick<ForecastData, "series"> & { segments?: ForecastSegments };
+  station: StationForecast;
+  model: "icon_ch1" | "icon_ch2";
+  period?: string;
+  yRange: [number, number];
+  comparisonRuns?: string[];
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
@@ -17,9 +25,13 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     const element = container.current;
     return () => { if (element) void import("plotly.js/dist/plotly-basic.min.js").then(({ default: plotly }) => plotly.purge(element)); };
   }, []);
-  const runs = [...new Set(data.series.filter(s => s.model === model).map(s => s.run))].sort();
+  const comparisonMode = comparisonRuns !== undefined;
+  const selectedComparisonRuns = comparisonRuns ?? noComparisonRuns;
+  const runs = [...new Set(data.series.filter(s => s.model === model && (!comparisonMode || selectedComparisonRuns.includes(s.run))).map(s => s.run))].sort();
   const [periodFrom, periodTo] = period.split(":");
-  const groupHistoricalRuns = Boolean(periodFrom && periodTo && periodFrom < periodTo);
+  const groupHistoricalRuns = !comparisonMode && Boolean(periodFrom && periodTo && periodFrom < periodTo);
+  const segments = useMemo(() => data.segments ?? [{ series: data.series, rows: station.rows }], [data, station.rows]);
+  const actualDays = useMemo(() => comparisonMode ? observationDays(segments) : [], [comparisonMode, segments]);
   const runGroups = [...new Map(runs.map(run => {
     const identity = runtimeLegendIdentity(run, groupHistoricalRuns);
     return [identity.key, identity];
@@ -28,9 +40,12 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     : a.key.localeCompare(b.key));
   const title = `${model === "icon_ch1" ? "ICON1" : "ICON2"} · Global horizontal irradiance`;
   const exportLegend = JSON.stringify([
-    ...runGroups.map((run, index) => ({ label: run.label, color: index === runGroups.length - 1 ? "#2563eb" : "#9ca3af", checked: !hiddenRuns.includes(run.key) })),
+    ...runGroups.map((run, index) => ({ label: run.label, color: comparisonMode
+      ? comparisonRunColor(runs.find(value => runtimeLegendIdentity(value, false).key === run.key) ?? "", selectedComparisonRuns)
+      : index === runGroups.length - 1 ? "#2563eb" : "#9ca3af", checked: !hiddenRuns.includes(run.key) })),
     { label: "Members", checked: members },
-    { label: "Actual GHI", color: "#16a34a", checked: showActual },
+    ...(comparisonMode ? actualDays.map(day => ({ label: `Actual GHI ${day.slice(8, 10)}.${day.slice(5, 7)}.`, color: "#16a34a", checked: true }))
+      : [{ label: "Actual GHI", color: "#16a34a", checked: showActual }]),
   ]);
 
 
@@ -44,7 +59,7 @@ export default function ForecastChart({ data, station, model, period = "" }: {
       try {
         const { default: Plotly } = await import("plotly.js/dist/plotly-basic.min.js");
         if (disposed || !element) return;
-        const modelRuns = [...new Set(data.series.filter(s => s.model === model).map(s => s.run))].sort();
+        const modelRuns = [...new Set(data.series.filter(s => s.model === model && (!comparisonMode || selectedComparisonRuns.includes(s.run))).map(s => s.run))].sort();
         const modelRunGroups = [...new Map(modelRuns.map(run => {
           const identity = runtimeLegendIdentity(run, groupHistoricalRuns);
           return [identity.key, identity];
@@ -54,9 +69,8 @@ export default function ForecastChart({ data, station, model, period = "" }: {
         const latestRunGroup = modelRunGroups.at(-1)?.key;
         const shownMemberLegends = new Set<string>();
         const traces: Record<string, unknown>[] = [];
-        const segments = data.segments ?? [{ series: data.series, rows: station.rows }];
         data.series.forEach((series) => {
-          if (series.model !== model) return;
+          if (series.model !== model || (comparisonMode && !selectedComparisonRuns.includes(series.run))) return;
           const runIdentity = runtimeLegendIdentity(series.run, groupHistoricalRuns);
           const latest = runIdentity.key === latestRunGroup;
           const control = series.member === "control";
@@ -74,27 +88,33 @@ export default function ForecastChart({ data, station, model, period = "" }: {
             ...(groupHistoricalRuns ? {} : { legendgrouptitle: { text: runIdentity.label } }),
             showlegend: !control && (!groupHistoricalRuns || firstMemberLegend),
             visible: control ? runVisible : runVisible && members ? true : "legendonly",
-            line: { color: latest ? "#2563eb" : "#9ca3af", width: control ? 3.2 : 1.4 }, opacity: control ? 1 : 0.5,
+            line: { color: comparisonMode ? comparisonRunColor(series.run, selectedComparisonRuns) : latest ? "#2563eb" : "#9ca3af", width: control ? 3.2 : 1.4 }, opacity: control ? 1 : 0.5,
             hovertemplate: `${control ? "Control" : series.member.replace("member_", "Member ")} · ${run}<br>%{y:.1f} W/m²<extra></extra>`,
           });
         });
-        const actual = observationHoverPoints(segments);
-        traces.push({ type: "scatter", mode: "lines", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...actual.line, hovertemplate: "Actual GHI: %{y:.1f} W/m²<extra></extra>",
-          line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
-        });
-        // Invisible points at missing observation timestamps prevent unified hover
-        // from snapping to an older measurement when the exact value is unknown.
-        traces.push({ type: "scatter", mode: "markers", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...actual.anchors, marker: { opacity: 0, size: 1 },
-        });
+        const days = comparisonMode ? actualDays : [""];
+        for (const day of days) {
+          const daySegments = day ? segments.map(segment => ({ ...segment, rows: segment.rows.filter(row => row.time.startsWith(day)) })) : segments;
+          const actual = observationHoverPoints(daySegments);
+          const name = day ? `Actual GHI ${day.slice(8, 10)}.${day.slice(5, 7)}.` : "Actual GHI";
+          const visible = comparisonMode ? true : showActual;
+          traces.push({ type: "scatter", mode: "lines", name, legendgroup: `actual:${day}`, showlegend: comparisonMode, visible,
+            ...actual.line, hovertemplate: `${name}: %{y:.1f} W/m²<extra></extra>`,
+            line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
+          });
+          // Invisible points at missing observation timestamps prevent unified hover
+          // from snapping to an older measurement when the exact value is unknown.
+          traces.push({ type: "scatter", mode: "markers", name, legendgroup: `actual:${day}`, showlegend: false, visible,
+            ...actual.anchors, marker: { opacity: 0, size: 1 },
+          });
+        }
         await Plotly.react(element, traces, {
           autosize: true, height: 520, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
           margin: { l: 62, r: 18, t: 20, b: 105 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },
           xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", nticks: 7,
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
-          yaxis: { title: { text: "GHI [W/m²]" }, rangemode: "tozero", gridcolor: "#e5e7eb" },
-          hovermode: "x unified", uirevision: `${station.id}-${model}-${period}`, showlegend: true,
+          yaxis: { title: { text: "GHI [W/m²]" }, range: yRange, gridcolor: "#e5e7eb" },
+          hovermode: "x unified", uirevision: `${station.id}-${model}-${period}-${selectedComparisonRuns.join(",") || "forecast"}`, showlegend: true,
           legend: { orientation: "h", y: -0.22, x: 0, maxheight: 58, groupclick: groupHistoricalRuns ? "togglegroup" : "toggleitem", font: { size: 9 } },
         }, { responsive: true, displaylogo: false, scrollZoom: false, toImageButtonOptions: { filename: `${station.id}-${model}-ghi`, scale: 2 } });
         if (disposed) return;
@@ -107,7 +127,7 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     }
     void draw();
     return () => { disposed = true; observer?.disconnect(); cancelAnimationFrame(frame); };
-  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns]);
+  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns, comparisonMode, selectedComparisonRuns, actualDays, segments, yRange]);
 
   return <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
     <div className="border-b border-slate-100 px-5 py-4">
@@ -115,10 +135,12 @@ export default function ForecastChart({ data, station, model, period = "" }: {
       <div className="mt-3 flex max-h-28 flex-wrap items-center gap-x-4 gap-y-2 overflow-y-auto text-xs">
         {runGroups.map((run, index) => <label key={run.key} className="flex cursor-pointer items-center gap-2">
           <input type="checkbox" checked={!hiddenRuns.includes(run.key)} onChange={e => setHiddenRuns(current => e.target.checked ? current.filter(r => r !== run.key) : [...current, run.key])} />
-          <span className="h-0.5 w-4" style={{ background: index === runGroups.length - 1 ? "#2563eb" : "#9ca3af" }} />{run.label}
+          <span className="h-0.5 w-4" style={{ background: comparisonMode
+            ? comparisonRunColor(runs.find(value => runtimeLegendIdentity(value, false).key === run.key) ?? "", selectedComparisonRuns)
+            : index === runGroups.length - 1 ? "#2563eb" : "#9ca3af" }} />{run.label}
         </label>)}
         <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={members} onChange={e => setMembers(e.target.checked)} />Members</label>
-        <label className="flex cursor-pointer items-center gap-2 text-green-600"><input type="checkbox" checked={showActual} onChange={e => setShowActual(e.target.checked)} /><span>━ Actual GHI</span></label>
+        {!comparisonMode && <label className="flex cursor-pointer items-center gap-2 text-green-600"><input type="checkbox" checked={showActual} onChange={e => setShowActual(e.target.checked)} /><span>━ Actual GHI</span></label>}
       </div>
     </div>
     {error ? <div role="alert" className="p-8">Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} data-export-chart data-export-station={station.id} data-export-model={model} data-export-title={title} data-export-legend={exportLegend} className="h-[520px] w-full" aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
