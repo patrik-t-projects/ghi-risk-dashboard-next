@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
 import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints } from "@/lib/forecastHistory";
 
+function currentUtcMinute(): string {
+  const now = new Date();
+  now.setUTCSeconds(0, 0);
+  return now.toISOString().replace(/Z$/, "");
+}
+
 export default function ForecastChart({ data, station, model, period = "" }: {
   data: Pick<ForecastData, "series"> & { segments?: ForecastSegments }; station: StationForecast; model: "icon_ch1" | "icon_ch2"; period?: string;
 }) {
@@ -13,9 +19,19 @@ export default function ForecastChart({ data, station, model, period = "" }: {
   const [members, setMembers] = useState(false);
   const [showActual, setShowActual] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [nowMinute, setNowMinute] = useState(currentUtcMinute);
   useEffect(() => {
     const element = container.current;
     return () => { if (element) void import("plotly.js/dist/plotly-basic.min.js").then(({ default: plotly }) => plotly.purge(element)); };
+  }, []);
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const update = () => setNowMinute(currentUtcMinute());
+    const timeout = setTimeout(() => {
+      update();
+      interval = setInterval(update, 60000);
+    }, 60000 - Date.now() % 60000);
+    return () => { clearTimeout(timeout); if (interval) clearInterval(interval); };
   }, []);
   const runs = [...new Set(data.series.filter(s => s.model === model).map(s => s.run))].sort();
   const [periodFrom, periodTo] = period.split(":");
@@ -80,13 +96,13 @@ export default function ForecastChart({ data, station, model, period = "" }: {
         });
         const actual = observationHoverPoints(segments);
         traces.push({ type: "scatter", mode: "lines", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...actual.line, hovertemplate: "Actual GHI: %{y:.1f} W/m²<extra></extra>",
+          ...actual.line, hoverinfo: "skip",
           line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
         });
-        // Invisible points at missing observation timestamps prevent unified hover
-        // from snapping to an older measurement when the exact value is unknown.
+        // Timestamp-aligned invisible points provide hover text only where a real
+        // measurement exists, preventing Plotly from reusing the last known value.
         traces.push({ type: "scatter", mode: "markers", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...actual.anchors, marker: { opacity: 0, size: 1 },
+          ...actual.hover, marker: { opacity: 0, size: 1 },
         });
         await Plotly.react(element, traces, {
           autosize: true, height: 520, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
@@ -94,6 +110,8 @@ export default function ForecastChart({ data, station, model, period = "" }: {
           xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", nticks: 7,
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
           yaxis: { title: { text: "GHI [W/m²]" }, rangemode: "tozero", gridcolor: "#e5e7eb" },
+          shapes: [{ type: "line", xref: "x", yref: "paper", x0: nowMinute, x1: nowMinute, y0: 0, y1: 1,
+            line: { color: "#000000", width: 1.5 } }],
           hovermode: "x unified", uirevision: `${station.id}-${model}-${period}`, showlegend: true,
           legend: { orientation: "h", y: -0.22, x: 0, maxheight: 58, groupclick: groupHistoricalRuns ? "togglegroup" : "toggleitem", font: { size: 9 } },
         }, { responsive: true, displaylogo: false, scrollZoom: false, toImageButtonOptions: { filename: `${station.id}-${model}-ghi`, scale: 2 } });
@@ -107,7 +125,7 @@ export default function ForecastChart({ data, station, model, period = "" }: {
     }
     void draw();
     return () => { disposed = true; observer?.disconnect(); cancelAnimationFrame(frame); };
-  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns]);
+  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns, nowMinute]);
 
   return <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
     <div className="border-b border-slate-100 px-5 py-4">
