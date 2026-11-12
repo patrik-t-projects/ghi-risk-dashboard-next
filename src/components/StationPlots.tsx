@@ -3,27 +3,24 @@
 import { useEffect, useState } from "react";
 import { fetchForecast } from "@/lib/forecastClient";
 import { combineStationDays } from "@/lib/forecastHistory";
-import { sharedGhiRange } from "@/lib/forecastComparison";
 import type { StationForecastResponse, StationSummary } from "@/lib/forecastCsv";
 import ForecastChart from "./ForecastChart";
 import styles from "./SwitzerlandBeta.module.css";
 
 type Combined = ReturnType<typeof combineStationDays>;
 
-export default function StationPlots({ station, mode, from, to, refreshToken, onClose, comparisonRuns }: {
+export default function StationPlots({ station, mode, from, to, refreshToken, onClose }: {
   station: StationSummary;
   mode: "today" | "history";
   from: string;
   to: string;
   refreshToken: number;
   onClose: () => void;
-  comparisonRuns?: string[];
 }) {
   const [data, setData] = useState<Combined | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
-  const comparisonKey = comparisonRuns?.join(",") ?? "";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -34,9 +31,7 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
       setLoading(true);
       setError("");
       try {
-        const params: Record<string, string> = comparisonKey
-          ? { view: "comparison", mode, station: station.id, runs: comparisonKey }
-          : { view: mode, station: station.id };
+        const params: Record<string, string> = { view: mode, station: station.id };
         if (mode === "history") Object.assign(params, { from, to });
         const result = await fetchForecast<StationForecastResponse>(params, controller.signal);
         if (!controller.signal.aborted) setData(combineStationDays(result.segments));
@@ -55,8 +50,7 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
       if (interval) clearInterval(interval);
       document.removeEventListener("visibilitychange", load);
     };
-  }, [station.id, mode, from, to, refreshToken, attempt, comparisonKey]);
-  const yRange = data ? sharedGhiRange(data.segments, comparisonRuns) : undefined;
+  }, [station.id, mode, from, to, refreshToken, attempt]);
 
   return <section className="mt-7 pb-5" aria-label={`${station.name} forecast comparison`}>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -65,7 +59,6 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
     </div>
     {error && <div role="alert" className="mb-3 rounded-xl border border-amber-300/20 p-4 text-sm text-amber-100">{error}<button className="ml-4 underline" onClick={() => { setError(""); setAttempt(value => value + 1); }}>Retry</button>{data && <p className="mt-1 text-xs">The previous successful chart remains visible.</p>}</div>}
     {loading && <p role="status" className="mb-3 text-sm text-slate-400">Loading {station.name} forecasts…{data ? " Updating the displayed chart." : ""}</p>}
-    {data && yRange && <div className={styles.chartGrid}><ForecastChart key={`icon1:${comparisonRuns?.join(",") ?? "forecasts"}`} data={data} station={data.station} model="icon_ch1" period={`${from}:${to}`} yRange={yRange} comparisonRuns={comparisonRuns} />
-      <ForecastChart key={`icon2:${comparisonRuns?.join(",") ?? "forecasts"}`} data={data} station={data.station} model="icon_ch2" period={`${from}:${to}`} yRange={yRange} comparisonRuns={comparisonRuns} /></div>}
+    {data && <div className={styles.chartGrid}><ForecastChart data={data} station={data.station} model="icon_ch1" period={`${from}:${to}`} /><ForecastChart data={data} station={data.station} model="icon_ch2" period={`${from}:${to}`} /></div>}
   </section>;
 }
