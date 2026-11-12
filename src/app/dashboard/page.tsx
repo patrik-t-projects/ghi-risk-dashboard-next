@@ -6,6 +6,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import { defaultCustomDashboard, normalizeCustomDashboard, pinDashboardWidget,
+  type CustomDashboardState, type DashboardWidget } from "@/lib/customDashboard";
 
 const SwitzerlandBeta = dynamic(() => import("@/components/SwitzerlandBeta"), {
   ssr: false,
@@ -19,8 +21,16 @@ const ControlAreaBalance = dynamic(() => import("@/components/ControlAreaBalance
   ssr: false,
   loading: () => <p className="p-10 text-slate-400">Loading Swissgrid data…</p>,
 });
+const CustomDashboard = dynamic(() => import("@/components/CustomDashboard"), {
+  ssr: false,
+  loading: () => <p className="p-10 text-slate-400">Loading personal dashboard…</p>,
+});
 
 const DASHBOARDS = {
+  dashboard: {
+    label: "Dashboard",
+    description: "Your pinned live plots",
+  },
   "control-area-balance": {
     label: "CH Imbalance & AEP",
     description: "Swiss control-area balance and balancing energy price",
@@ -49,6 +59,7 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<DashboardView>("empty");
   const [betaMode, setBetaMode] = useState<"today" | "history">("today");
   const [balanceMode, setBalanceMode] = useState<"today" | "history">("today");
+  const [customDashboard, setCustomDashboard] = useState<CustomDashboardState>(defaultCustomDashboard);
 
   useEffect(() => {
     async function loadUser() {
@@ -65,6 +76,10 @@ export default function DashboardPage() {
         router.replace("/account");
         return;
       }
+      try {
+        const stored = localStorage.getItem(`energy-dashboard-layout:${data.user.id}`);
+        setCustomDashboard(stored ? normalizeCustomDashboard(JSON.parse(stored)) : defaultCustomDashboard());
+      } catch { setCustomDashboard(defaultCustomDashboard()); }
       setUser(data.user);
       setLoading(false);
     }
@@ -90,6 +105,21 @@ export default function DashboardPage() {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
+
+  function saveCustomDashboard(next: CustomDashboardState) {
+    setCustomDashboard(next);
+    if (user) localStorage.setItem(`energy-dashboard-layout:${user.id}`, JSON.stringify(next));
+  }
+
+  function pinWidget(widget: DashboardWidget) {
+    setCustomDashboard(current => {
+      const next = pinDashboardWidget(current, widget);
+      if (user) localStorage.setItem(`energy-dashboard-layout:${user.id}`, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  const isPinned = (widgetId: string) => customDashboard.widgets.some(widget => widget.id === widgetId);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -276,8 +306,9 @@ export default function DashboardPage() {
         </header>
 
         <div className="min-h-0 flex-1">
-          {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} />}
-          {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode} />}
+          {activeView === "dashboard" && <CustomDashboard state={customDashboard} onSave={saveCustomDashboard} />}
+          {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} onPin={pinWidget} isPinned={isPinned} />}
+          {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode} onPin={pinWidget} isPinned={isPinned} />}
           {activeView === "fog-map" && <FogMap />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">

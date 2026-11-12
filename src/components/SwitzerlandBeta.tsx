@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { downloadForecastCsv, fetchForecast } from "@/lib/forecastClient";
 import { exportPlotsPdf, exportPlotsPng, saveDownload } from "@/lib/forecastExport";
 import type { ForecastCatalog } from "@/lib/forecastCsv";
+import type { DashboardWidget } from "@/lib/customDashboard";
 import ForecastDeltaCalculator from "./ForecastDeltaCalculator";
 import StationPlots from "./StationPlots";
 import styles from "./SwitzerlandBeta.module.css";
@@ -12,7 +13,8 @@ type Cantons = { features: { properties: { shapeName: string }; geometry: Geomet
 type Lakes = { features: { properties: { name: string }; geometry: Geometry }[] };
 const rings = (geometry: Geometry): Point[][] => geometry.type === "Polygon" ? geometry.coordinates : geometry.coordinates.flat();
 const project = ([longitude, latitude]: Point): Point => [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))];
-export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" | "history"; onModeChange: (mode: "today" | "history") => void }) {
+export default function SwitzerlandBeta({ mode, onModeChange, onPin, isPinned }: { mode: "today" | "history";
+  onModeChange: (mode: "today" | "history") => void; onPin?: (widget: DashboardWidget) => void; isPinned?: (widgetId: string) => boolean }) {
   const yesterday = () => new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const [catalog, setCatalog] = useState<ForecastCatalog | null>(null);
   const [cantons, setCantons] = useState<Cantons | null>(null);
@@ -176,7 +178,7 @@ export default function SwitzerlandBeta({ mode, onModeChange }: { mode: "today" 
     </section>
     <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><label htmlFor="station-picker" className="text-slate-400">Select a station</label><select id="station-picker" value="" onChange={e => { if (e.target.value) choose(e.target.value); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200"><option value="">Choose station…</option>{catalog?.stations.map(s => <option key={s.id} value={s.id}>{s.id}{selected.includes(s.id) ? " — selected (hide)" : ""}</option>)}</select><span className="text-xs text-slate-500">{selected.length} selected · Hover for station labels</span><label htmlFor="forecast-export" className="ml-auto text-slate-400">Download</label><select id="forecast-export" value="" disabled={!selected.length || Boolean(exporting)} onChange={event => { const format = event.target.value as "png" | "pdf" | "csv"; if (format) void exportSelection(format); }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"><option value="">{exporting ? `Creating ${exporting.toUpperCase()}…` : "Choose format…"}</option><option value="png">PNG — selected plots</option><option value="pdf">PDF — selected plots</option><option value="csv">CSV — selected stations</option></select></div>
     {exportError && <div role="alert" className="mt-3 text-sm text-amber-200">{exportError}</div>}
-    {selectedStations.map(station => <StationPlots key={station.id} station={station} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} onClose={() => choose(station.id)} />)}
+    {selectedStations.map(station => <StationPlots key={station.id} station={station} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} onClose={() => choose(station.id)} onPin={onPin} isPinned={isPinned} />)}
     {selectedStations.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center text-sm text-slate-400">Click a red station marker to open its plots. Click again to hide them.</div>}
     </>}
     {workspace === "calculator" && catalog && <ForecastDeltaCalculator stations={catalog.stations} mode={mode} from={activeFrom} to={activeTo} refreshToken={attempt} />}

@@ -6,7 +6,7 @@ import type { ControlAreaBalanceRow } from "@/lib/controlAreaBalanceCsv";
 const QUARTER_HOUR_MS = 15 * 60 * 1000;
 const HALF_INTERVAL_MS = QUARTER_HOUR_MS / 2;
 
-export default function ControlAreaBalanceChart({ rows, from, to }: { rows: ControlAreaBalanceRow[]; from: string; to: string }) {
+export default function ControlAreaBalanceChart({ rows, from, to, height = 590 }: { rows: ControlAreaBalanceRow[]; from: string; to: string; height?: number }) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
   const plotTimes = useMemo(() => rows.map(row => row.time.replace(/Z$/, "")), [rows]);
@@ -34,7 +34,7 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
             yaxis: "y2", line: { color: "#2563eb", width: 2.8 }, connectgaps: false,
             hovertemplate: "AEP: %{y:.2f} EUR/MWh<extra></extra>" },
         ], {
-          autosize: true, height: 590, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", bargap: 0.06,
+          autosize: true, height, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", bargap: 0.06,
           margin: { l: 72, r: 72, t: 30, b: 72 }, font: { family: "Arial, sans-serif", size: 12, color: "#334155" },
           xaxis: { title: { text: "Datetime UTC" }, type: "date", range: xRange, tickformat: "%d %b<br>%H:%M",
             hoverformat: "%d.%m.%Y, %H:%M UTC", gridcolor: "#e5e7eb", rangeslider: { visible: false },
@@ -57,10 +57,10 @@ export default function ControlAreaBalanceChart({ rows, from, to }: { rows: Cont
     return () => {
       disposed = true; observer?.disconnect(); cancelAnimationFrame(frame);
     };
-  }, [rows, period, plotTimes, xRange]);
+  }, [rows, period, plotTimes, xRange, height]);
 
   if (error) return <div role="alert" className="rounded-xl border border-amber-300/20 p-8 text-amber-100">The imbalance chart could not be rendered.</div>;
   return <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
-    <div ref={container} className="h-[590px] w-full" aria-label="Swiss control-area imbalance and AEP chart" />
+    <div ref={container} style={{ height }} className="w-full" aria-label="Swiss control-area imbalance and AEP chart" />
   </section>;
 }

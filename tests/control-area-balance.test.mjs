@@ -18,6 +18,7 @@ function compile(file, require = () => { throw Error('Unexpected dependency'); }
 }
 
 const parser = compile('src/lib/controlAreaBalanceCsv.ts');
+const customDashboard = compile('src/lib/customDashboard.ts');
 const csv = 'Date Time [UTC];Extra;Total System Imbalance;AE-Preis\n' +
   '19.09.2026 00:15;x;-31.97917667;21.04\n' +
   '19.09.2026 00:00;x;-49.40379333;23.14\n';
@@ -68,8 +69,9 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
   const component = compile('src/components/ControlAreaBalance.tsx', name => {
     if (name.startsWith('react')) return nodeRequire(name);
     if (name === '@/lib/controlAreaBalanceClient') return {};
-    if (name === '@/lib/supabaseClient') return { supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } };
+    if (name === '@/lib/customDashboard') return customDashboard;
     if (name === './ControlAreaBalanceChart') return { default: () => null };
+    if (name === './ImbalanceForecastFrame') return { default: () => null };
     throw Error(name);
   });
   const html = renderToStaticMarkup(React.createElement(component.default, { mode, onModeChange: () => {} }));
@@ -89,9 +91,10 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
 
 test('HTML imbalance forecast moved below the chart and out of sidebar navigation', () => {
   const component = fs.readFileSync('src/components/ControlAreaBalance.tsx', 'utf8');
+  const frame = fs.readFileSync('src/components/ImbalanceForecastFrame.tsx', 'utf8');
   const page = fs.readFileSync('src/app/dashboard/page.tsx', 'utf8');
-  assert.match(component, /dashboard-html\?dashboard=imbalance-ch/);
-  assert.match(component, /title="Imbalance forecast dashboard"/);
+  assert.match(frame, /dashboard-html\?dashboard=imbalance-ch/);
+  assert.match(frame, /title="Imbalance forecast dashboard"/);
   assert.match(component, /aria-expanded=\{forecastOpen\}/);
   assert.doesNotMatch(page, /label: "Imbalance CH model"/);
 });
