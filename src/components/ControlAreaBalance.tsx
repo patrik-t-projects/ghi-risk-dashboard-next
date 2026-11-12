@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchControlAreaBalance, type ControlAreaBalanceResponse } from "@/lib/controlAreaBalanceClient";
+import { supabase } from "@/lib/supabaseClient";
 import ControlAreaBalanceChart from "./ControlAreaBalanceChart";
 
 function defaultHistoryDay() {
@@ -23,6 +24,10 @@ export default function ControlAreaBalance({ mode, onModeChange }: {
   const [error, setError] = useState("");
   const [checked, setChecked] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [forecastOpen, setForecastOpen] = useState(false);
+  const [forecastHtml, setForecastHtml] = useState("");
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,6 +52,28 @@ export default function ControlAreaBalance({ mode, onModeChange }: {
   const today = new Date().toISOString().slice(0, 10);
   const chartFrom = mode === "today" ? today : range.from;
   const chartTo = mode === "today" ? today : range.to;
+  async function loadForecast() {
+    if (forecastHtml || forecastLoading) return;
+    setForecastLoading(true); setForecastError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please sign in again to load the imbalance forecast.");
+      const response = await fetch("/api/dashboard-html?dashboard=imbalance-ch", { cache: "no-store",
+        headers: { Authorization: `Bearer ${session.access_token}` } });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error || "The imbalance forecast could not be loaded.");
+      }
+      setForecastHtml(await response.text());
+    } catch (caught) {
+      setForecastError(caught instanceof Error ? caught.message : "The imbalance forecast could not be loaded.");
+    } finally { setForecastLoading(false); }
+  }
+  function toggleForecast() {
+    const opening = !forecastOpen;
+    setForecastOpen(opening);
+    if (opening) void loadForecast();
+  }
   return <div className="h-[calc(100dvh-4rem)] overflow-y-auto p-4 sm:p-6">
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">Swiss electricity system</p>
@@ -83,5 +110,22 @@ export default function ControlAreaBalance({ mode, onModeChange }: {
     {loading && <p role="status" className="mb-4 text-sm text-slate-400">Loading Swissgrid imbalance and AEP…</p>}
     {!loading && data && data.rows.length === 0 && <div className="rounded-xl border border-white/10 p-8 text-center text-sm text-slate-400">No Swissgrid values are available for this date range.</div>}
     {data && data.rows.length > 0 && <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo} />}
+
+    <section className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]" aria-label="Imbalance forecast">
+      <button type="button" aria-expanded={forecastOpen} aria-controls="imbalance-forecast-panel" onClick={toggleForecast}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-white/[0.04]">
+        <span><span className="block text-sm font-semibold text-slate-200">Imbalance forecast</span>
+          <span className="mt-1 block text-xs text-slate-500">HTML model dashboard</span></span>
+        <span className="text-lg text-slate-400" aria-hidden="true">{forecastOpen ? "−" : "+"}</span>
+      </button>
+      {forecastOpen && <div id="imbalance-forecast-panel" className="border-t border-white/10">
+        {forecastLoading && <p role="status" className="p-5 text-sm text-slate-400">Loading imbalance forecast…</p>}
+        {forecastError && <div role="alert" className="m-5 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-4 text-sm text-amber-100">
+          {forecastError}<button type="button" className="ml-4 underline" onClick={() => void loadForecast()}>Retry</button>
+        </div>}
+        {forecastHtml && <iframe title="Imbalance forecast dashboard" srcDoc={forecastHtml}
+          className="block h-[calc(100dvh-8rem)] min-h-[720px] w-full border-0 bg-white" allow="fullscreen" />}
+      </div>}
+    </section>
   </div>;
 }

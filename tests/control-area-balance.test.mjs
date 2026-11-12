@@ -68,6 +68,7 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
   const component = compile('src/components/ControlAreaBalance.tsx', name => {
     if (name.startsWith('react')) return nodeRequire(name);
     if (name === '@/lib/controlAreaBalanceClient') return {};
+    if (name === '@/lib/supabaseClient') return { supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } };
     if (name === './ControlAreaBalanceChart') return { default: () => null };
     throw Error(name);
   });
@@ -76,11 +77,23 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
   assert.match(html, /Control-area balance period/);
   assert.match(html, /Today/);
   assert.match(html, /Historical/);
+  assert.match(html, /Imbalance forecast/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.doesNotMatch(html, /<iframe/);
   if (mode === 'history') {
     assert.match(html, /From \(UTC day\)/);
     assert.match(html, /To \(UTC day\)/);
     assert.match(html, /Show range/);
   }
+});
+
+test('HTML imbalance forecast moved below the chart and out of sidebar navigation', () => {
+  const component = fs.readFileSync('src/components/ControlAreaBalance.tsx', 'utf8');
+  const page = fs.readFileSync('src/app/dashboard/page.tsx', 'utf8');
+  assert.match(component, /dashboard-html\?dashboard=imbalance-ch/);
+  assert.match(component, /title="Imbalance forecast dashboard"/);
+  assert.match(component, /aria-expanded=\{forecastOpen\}/);
+  assert.doesNotMatch(page, /label: "Imbalance CH model"/);
 });
 
 test('chart defines units, moving unified hover and a vertical cursor line', () => {

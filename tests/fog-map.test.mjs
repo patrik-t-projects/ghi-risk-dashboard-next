@@ -34,5 +34,4 @@ test('Fog map follows Switzerland map Beta in dashboard navigation and renders l
   assert.ok(betaIndex >= 0 && fogIndex > betaIndex);
   assert.match(source, /label: "Fog map"/);
   assert.match(source, /activeView === "fog-map" && <FogMap \/>/);
-  assert.match(source, /dashboardId === "fog-map"/);
 });

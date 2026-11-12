@@ -25,10 +25,6 @@ const DASHBOARDS = {
     label: "CH Imbalance & AEP",
     description: "Swiss control-area balance and balancing energy price",
   },
-  "imbalance-ch": {
-    label: "Imbalance CH model",
-    description: "Switzerland imbalance dashboard",
-  },
   "switzerland-beta": {
     label: "Switzerland map — Beta",
     description: "Station forecasts · Today and historical days",
@@ -53,15 +49,6 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<DashboardView>("empty");
   const [betaMode, setBetaMode] = useState<"today" | "history">("today");
   const [balanceMode, setBalanceMode] = useState<"today" | "history">("today");
-  const [dashboardHtml, setDashboardHtml] = useState<
-    Partial<Record<DashboardId, string>>
-  >({});
-  const [dashboardLoading, setDashboardLoading] = useState<DashboardId | null>(
-    null,
-  );
-  const [dashboardErrors, setDashboardErrors] = useState<
-    Partial<Record<DashboardId, string>>
-  >({});
 
   useEffect(() => {
     async function loadUser() {
@@ -109,63 +96,11 @@ export default function DashboardPage() {
     router.replace("/login");
   }
 
-  async function openDashboard(dashboardId: DashboardId) {
+  function openDashboard(dashboardId: DashboardId) {
     setActiveView(dashboardId);
 
     if (window.matchMedia("(max-width: 767px)").matches) {
       setSidebarOpen(false);
-    }
-
-    if (dashboardId === "switzerland-beta" || dashboardId === "fog-map" || dashboardId === "control-area-balance") return;
-
-    setDashboardLoading(dashboardId);
-    setDashboardErrors((current) => ({ ...current, [dashboardId]: undefined }));
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      router.replace("/login");
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/dashboard-html?dashboard=${encodeURIComponent(dashboardId)}`,
-        {
-          cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        },
-      );
-
-      if (response.status === 401) {
-        await supabase.auth.signOut();
-        router.replace("/login");
-        return;
-      }
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(payload?.error || "The dashboard could not be loaded.");
-      }
-
-      const html = await response.text();
-      setDashboardHtml((current) => ({ ...current, [dashboardId]: html }));
-    } catch (error) {
-      setDashboardErrors((current) => ({
-        ...current,
-        [dashboardId]:
-          error instanceof Error
-            ? error.message
-            : "The dashboard could not be loaded.",
-      }));
-    } finally {
-      setDashboardLoading(null);
     }
   }
 
@@ -207,9 +142,6 @@ export default function DashboardPage() {
 
   const activeDashboard =
     activeView === "empty" ? null : DASHBOARDS[activeView];
-  const activeHtml = activeView === "empty" ? null : dashboardHtml[activeView];
-  const activeError =
-    activeView === "empty" ? null : dashboardErrors[activeView];
   const dashboardEntries = Object.entries(DASHBOARDS) as [
     DashboardId,
     (typeof DASHBOARDS)[DashboardId],
@@ -363,43 +295,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {activeView !== "empty" && dashboardLoading === activeView && (
-            <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center">
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
-                Loading {DASHBOARDS[activeView].label}…
-              </div>
-            </div>
-          )}
-
-          {activeView !== "empty" && activeError && (
-            <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">
-              <div className="max-w-lg rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] p-6">
-                <h2 className="font-medium text-amber-100">
-                  Dashboard HTML not available
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  {activeError}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => openDashboard(activeView)}
-                  className="mt-4 rounded-lg bg-white/10 px-3 py-2 text-sm text-white transition hover:bg-white/15"
-                >
-                  Try again
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeView !== "empty" && activeHtml && (
-            <iframe
-              title={`${DASHBOARDS[activeView].label} dashboard`}
-              srcDoc={activeHtml}
-              className="block h-[calc(100dvh-4rem)] w-full border-0 bg-white"
-              allow="fullscreen"
-            />
-          )}
         </div>
       </section>
     </main>
