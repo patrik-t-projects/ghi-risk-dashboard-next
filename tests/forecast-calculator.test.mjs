@@ -13,16 +13,18 @@ const calculator = context.exports;
 const run06 = '20261011T060000Z';
 const run12 = '20261011T120000Z';
 const series = [
+  { key: 'i1c6', model: 'icon_ch1', run: run06, member: 'control' },
+  { key: 'i1m6', model: 'icon_ch1', run: run06, member: 'member_1' },
   { key: 'c6', model: 'icon_ch2', run: run06, member: 'control' },
   { key: 'm6', model: 'icon_ch2', run: run06, member: 'member_1' },
   { key: 'c12', model: 'icon_ch2', run: run12, member: 'control' },
 ];
 const segments = [{ series, rows: [
-  { time: '2026-10-11T07:15:00Z', measured: 500, values: [580, 590, null] },
-  { time: '2026-10-11T08:00:00Z', measured: null, values: [600, 610, null] },
-  { time: '2026-10-11T08:15:00Z', measured: null, values: [600, 610, null] },
-  { time: '2026-10-11T08:30:00Z', measured: null, values: [600, 610, null] },
-  { time: '2026-10-11T08:45:00Z', measured: null, values: [600, 610, null] },
+  { time: '2026-10-11T07:15:00Z', measured: 500, values: [560, 570, 580, 590, null] },
+  { time: '2026-10-11T08:00:00Z', measured: null, values: [575, 585, 600, 610, null] },
+  { time: '2026-10-11T08:15:00Z', measured: null, values: [575, 585, 600, 610, null] },
+  { time: '2026-10-11T08:30:00Z', measured: null, values: [575, 585, 600, 610, null] },
+  { time: '2026-10-11T08:45:00Z', measured: null, values: [575, 585, 600, 610, null] },
 ] }];
 
 test('calculator derives measured timestamps and historical run eligibility', () => {
@@ -32,11 +34,12 @@ test('calculator derives measured timestamps and historical run eligibility', ()
   assert.equal(measured[0].value, 500);
   assert.deepEqual(Array.from(calculator.icon2RunOptions(segments, '2026-10-11T07:15:00Z', true)), [run06]);
   assert.deepEqual(Array.from(calculator.icon2RunOptions(segments, '2026-10-11T07:15:00Z', false)), [run12, run06]);
+  assert.deepEqual(Array.from(calculator.modelRunOptions(segments, 'icon_ch1', '2026-10-11T07:15:00Z', true)), [run06]);
 });
 
-test('calculator uses one member value for the selected future hour', () => {
-  assert.deepEqual(Array.from(calculator.futureHourOptions(segments, run06, '2026-10-11T07:15:00Z')), ['2026-10-11T08:00:00Z']);
-  const values = calculator.futureGhiValues(segments, run06, '2026-10-11T08:00:00Z');
+test('calculator keeps ICON1 and ICON2 member values separate for the selected future hour', () => {
+  assert.deepEqual(Array.from(calculator.futureHourOptions(segments, 'icon_ch2', run06, '2026-10-11T07:15:00Z')), ['2026-10-11T08:00:00Z']);
+  const values = calculator.futureGhiValues(segments, 'icon_ch2', run06, '2026-10-11T08:00:00Z');
   assert.equal(values.length, 21);
   assert.equal(values[0].member, 'control');
   assert.equal(values[0].ghi, 600);
@@ -44,6 +47,11 @@ test('calculator uses one member value for the selected future hour', () => {
   assert.equal(values[1].ghi, 610);
   assert.equal(values[20].member, 'member_20');
   assert.equal(values[20].ghi, null);
+  const icon1 = calculator.futureGhiValues(segments, 'icon_ch1', run06, '2026-10-11T08:00:00Z');
+  assert.equal(icon1.length, 11);
+  assert.equal(icon1[0].ghi, 575);
+  assert.equal(icon1[1].ghi, 585);
+  assert.equal(icon1[10].member, 'member_10');
 });
 
 test('calculator applies both GHI DA values and rejects a zero denominator', () => {
@@ -59,6 +67,9 @@ test('calculator UI exposes editable inputs, control marking and descending GHI 
   assert.match(source, /GHI DA current/);
   assert.match(source, /GHI DA future/);
   assert.match(source, /Future GHI \[W\/m²\]/);
+  assert.match(source, /model="icon_ch1"/);
+  assert.match(source, /model="icon_ch2"/);
+  assert.match(source, /Control \+ \{icon1 \? "10" : "20"\} ensemble members/);
   assert.match(source, /row\.control/);
   assert.match(source, /right\.value \?\? -Infinity/);
 });

@@ -36,17 +36,26 @@ const DASHBOARDS = {
     description: "Swiss control-area balance and balancing energy price",
   },
   "switzerland-beta": {
-    label: "Switzerland map — Beta",
+    label: "GHI map",
     description: "Station forecasts · Today and historical days",
   },
   "fog-map": {
-    label: "Fog map",
+    label: "Fog map – Beta",
     description: "Switzerland fog map",
   },
 } as const;
 
 type DashboardId = keyof typeof DASHBOARDS;
 type DashboardView = "empty" | DashboardId;
+type GhiStationSelections = { today: string[]; history: string[] };
+const emptyStationSelections = (): GhiStationSelections => ({ today: [], history: [] });
+
+function normalizeStationSelections(value: unknown): GhiStationSelections {
+  if (!value || typeof value !== "object") return emptyStationSelections();
+  const candidate = value as Partial<GhiStationSelections>;
+  const strings = (items: unknown) => Array.isArray(items) ? items.filter((item): item is string => typeof item === "string") : [];
+  return { today: strings(candidate.today), history: strings(candidate.history) };
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -60,6 +69,7 @@ export default function DashboardPage() {
   const [betaMode, setBetaMode] = useState<"today" | "history">("today");
   const [balanceMode, setBalanceMode] = useState<"today" | "history">("today");
   const [customDashboard, setCustomDashboard] = useState<CustomDashboardState>(defaultCustomDashboard);
+  const [ghiStationSelections, setGhiStationSelections] = useState<GhiStationSelections>(emptyStationSelections);
 
   useEffect(() => {
     async function loadUser() {
@@ -80,6 +90,10 @@ export default function DashboardPage() {
         const stored = localStorage.getItem(`energy-dashboard-layout:${data.user.id}`);
         setCustomDashboard(stored ? normalizeCustomDashboard(JSON.parse(stored)) : defaultCustomDashboard());
       } catch { setCustomDashboard(defaultCustomDashboard()); }
+      try {
+        const stored = localStorage.getItem(`energy-dashboard-ghi-stations:${data.user.id}`);
+        setGhiStationSelections(stored ? normalizeStationSelections(JSON.parse(stored)) : emptyStationSelections());
+      } catch { setGhiStationSelections(emptyStationSelections()); }
       setUser(data.user);
       setLoading(false);
     }
@@ -121,7 +135,17 @@ export default function DashboardPage() {
 
   const isPinned = (widgetId: string) => customDashboard.widgets.some(widget => widget.id === widgetId);
 
+  function saveGhiStationSelection(mode: "today" | "history", stations: string[]) {
+    setGhiStationSelections(current => {
+      const next = { ...current, [mode]: stations };
+      if (user) localStorage.setItem(`energy-dashboard-ghi-stations:${user.id}`, JSON.stringify(next));
+      return next;
+    });
+  }
+
   async function handleSignOut() {
+    if (user) localStorage.removeItem(`energy-dashboard-ghi-stations:${user.id}`);
+    setGhiStationSelections(emptyStationSelections());
     await supabase.auth.signOut();
     router.replace("/login");
   }
@@ -308,7 +332,9 @@ export default function DashboardPage() {
         <div className="min-h-0 flex-1">
           {activeView === "dashboard" && <CustomDashboard state={customDashboard} onSave={saveCustomDashboard} />}
           {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} onPin={pinWidget} isPinned={isPinned} />}
-          {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode} onPin={pinWidget} isPinned={isPinned} />}
+          {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode}
+            selected={ghiStationSelections[betaMode]} onSelectedChange={stations => saveGhiStationSelection(betaMode, stations)}
+            onPin={pinWidget} isPinned={isPinned} />}
           {activeView === "fog-map" && <FogMap />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
 import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints } from "@/lib/forecastHistory";
-import PinPlotButton from "./PinPlotButton";
+import PinnablePlotCard from "./PinnablePlotCard";
 
 function currentUtcMinute(): string {
   const now = new Date();
@@ -98,22 +98,20 @@ export default function ForecastChart({ data, station, model, period = "", heigh
         });
         const actual = observationHoverPoints(segments);
         traces.push({ type: "scatter", mode: "lines", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...actual.line, hoverinfo: "skip",
+          ...actual.native,
           line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
-        });
-        // Timestamp-aligned invisible points provide hover text only where a real
-        // measurement exists, preventing Plotly from reusing the last known value.
-        traces.push({ type: "scatter", mode: "markers", name: "Actual GHI", legendgroup: "actual", showlegend: false, visible: showActual,
-          ...actual.hover, marker: { opacity: 0, size: 1 },
         });
         await Plotly.react(element, traces, {
           autosize: true, height, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
-          margin: { l: 62, r: 18, t: 20, b: 105 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },
+          margin: { l: 62, r: 18, t: 42, b: 105 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },
           xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", nticks: 7,
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
           yaxis: { title: { text: "GHI [W/m²]" }, rangemode: "tozero", gridcolor: "#e5e7eb" },
           shapes: [{ type: "line", xref: "x", yref: "paper", x0: nowMinute, x1: nowMinute, y0: 0, y1: 1,
             line: { color: "#000000", width: 1.5 } }],
+          annotations: [{ x: nowMinute, xref: "x", y: 1, yref: "paper", xanchor: "center", yanchor: "bottom", showarrow: false,
+            text: `Now · ${nowMinute.slice(11, 16)} UTC`, bgcolor: "#0f172a", bordercolor: "#0f172a", borderpad: 4,
+            font: { color: "#ffffff", size: 10 } }],
           hovermode: "x unified", uirevision: `${station.id}-${model}-${period}`, showlegend: true,
           legend: { orientation: "h", y: -0.22, x: 0, maxheight: 58, groupclick: groupHistoricalRuns ? "togglegroup" : "toggleitem", font: { size: 9 } },
         }, { responsive: true, displaylogo: false, scrollZoom: false, toImageButtonOptions: { filename: `${station.id}-${model}-ghi`, scale: 2 } });
@@ -129,11 +127,10 @@ export default function ForecastChart({ data, station, model, period = "", heigh
     return () => { disposed = true; observer?.disconnect(); cancelAnimationFrame(frame); };
   }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns, nowMinute, height]);
 
-  return <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
-    <div className="border-b border-slate-100 px-5 py-4">
-      <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{model === "icon_ch1" ? "ICON1" : "ICON2"} <span className="ml-2 font-normal text-slate-400">Global horizontal irradiance</span></h3>
-        {onPin && <PinPlotButton onClick={onPin} pinned={pinned} tone="light" />}</div>
-      <div className="mt-3 flex max-h-28 flex-wrap items-center gap-x-4 gap-y-2 overflow-y-auto text-xs">
+  return <PinnablePlotCard tone="light" onPin={onPin} pinned={pinned}
+    header={<div className="px-5 py-4"><h3 className="font-semibold">{model === "icon_ch1" ? "ICON1" : "ICON2"} <span className="ml-2 font-normal text-slate-400">Global horizontal irradiance</span></h3></div>}>
+    <div className="border-b border-slate-100 px-5 py-3">
+      <div className="flex max-h-28 flex-wrap items-center gap-x-4 gap-y-2 overflow-y-auto text-xs">
         {runGroups.map((run, index) => <label key={run.key} className="flex cursor-pointer items-center gap-2">
           <input type="checkbox" checked={!hiddenRuns.includes(run.key)} onChange={e => setHiddenRuns(current => e.target.checked ? current.filter(r => r !== run.key) : [...current, run.key])} />
           <span className="h-0.5 w-4" style={{ background: index === runGroups.length - 1 ? "#2563eb" : "#9ca3af" }} />{run.label}
@@ -143,5 +140,5 @@ export default function ForecastChart({ data, station, model, period = "", heigh
       </div>
     </div>
     {error ? <div role="alert" className="p-8">Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} data-export-chart data-export-station={station.id} data-export-model={model} data-export-title={title} data-export-legend={exportLegend} style={{ height }} className="w-full" aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
-  </section>;
+  </PinnablePlotCard>;
 }

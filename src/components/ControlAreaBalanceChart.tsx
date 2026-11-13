@@ -2,11 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ControlAreaBalanceRow } from "@/lib/controlAreaBalanceCsv";
+import PinnablePlotCard from "./PinnablePlotCard";
 
 const QUARTER_HOUR_MS = 15 * 60 * 1000;
 const HALF_INTERVAL_MS = QUARTER_HOUR_MS / 2;
 
-export default function ControlAreaBalanceChart({ rows, from, to, height = 590 }: { rows: ControlAreaBalanceRow[]; from: string; to: string; height?: number }) {
+export default function ControlAreaBalanceChart({ rows, from, to, height = 590, onPin, pinned = false }: {
+  rows: ControlAreaBalanceRow[]; from: string; to: string; height?: number; onPin?: () => void; pinned?: boolean;
+}) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
   const plotTimes = useMemo(() => rows.map(row => row.time.replace(/Z$/, "")), [rows]);
@@ -60,7 +63,7 @@ export default function ControlAreaBalanceChart({ rows, from, to, height = 590 }
   }, [rows, period, plotTimes, xRange, height]);
 
   if (error) return <div role="alert" className="rounded-xl border border-amber-300/20 p-8 text-amber-100">The imbalance chart could not be rendered.</div>;
-  return <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
+  return <PinnablePlotCard tone="light" onPin={onPin} pinned={pinned}>
     <div ref={container} style={{ height }} className="w-full" aria-label="Swiss control-area imbalance and AEP chart" />
-  </section>;
+  </PinnablePlotCard>;
 }

@@ -131,6 +131,10 @@ test('overlapping endpoints merge once and Actual GHI hover gaps remain safe', (
   assert.deepEqual(Array.from(actual.hover.y), [0, 0]);
   assert.match(actual.hover.hovertemplate[0], /Actual GHI/);
   assert.doesNotMatch(actual.hover.hovertemplate[1], /Actual GHI/);
+  assert.deepEqual(Array.from(actual.native.x), ['2026-09-12T00:15:00', '2026-09-12T00:30:00', '2026-09-12T00:30:00', '2026-09-12T00:30:00']);
+  assert.deepEqual(Array.from(actual.native.y), [0, null, 0, null]);
+  assert.match(actual.native.hovertemplate[0], /Actual GHI/);
+  assert.doesNotMatch(actual.native.hovertemplate[2], /Actual GHI/);
 });
 
 test('multi-day historical legends group runs by UTC hour and members by hour plus member', () => {
@@ -153,10 +157,10 @@ test('multi-day historical legends group runs by UTC hour and members by hour pl
 
 test('Actual GHI hover does not reuse stale values and plots current UTC minute', () => {
   const source = fs.readFileSync('src/components/ForecastChart.tsx', 'utf8');
-  assert.match(source, /\.\.\.actual\.line, hoverinfo: "skip"/);
-  assert.match(source, /\.\.\.actual\.hover/);
+  assert.match(source, /\.\.\.actual\.native/);
   assert.match(source, /line: \{ color: "#16a34a", width: 3\.2 \}/);
   assert.match(source, /x0: nowMinute, x1: nowMinute/);
+  assert.match(source, /Now · \$\{nowMinute\.slice\(11, 16\)\} UTC/);
   assert.match(source, /color: "#000000", width: 1\.5/);
   assert.match(source, /setInterval\(update, 60000\)/);
   assert.doesNotMatch(source, /<span style=.*Actual GHI/);

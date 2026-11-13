@@ -13,13 +13,13 @@ type Cantons = { features: { properties: { shapeName: string }; geometry: Geomet
 type Lakes = { features: { properties: { name: string }; geometry: Geometry }[] };
 const rings = (geometry: Geometry): Point[][] => geometry.type === "Polygon" ? geometry.coordinates : geometry.coordinates.flat();
 const project = ([longitude, latitude]: Point): Point => [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))];
-export default function SwitzerlandBeta({ mode, onModeChange, onPin, isPinned }: { mode: "today" | "history";
-  onModeChange: (mode: "today" | "history") => void; onPin?: (widget: DashboardWidget) => void; isPinned?: (widgetId: string) => boolean }) {
+export default function SwitzerlandBeta({ mode, onModeChange, selected = [], onSelectedChange, onPin, isPinned }: { mode: "today" | "history";
+  onModeChange: (mode: "today" | "history") => void; selected?: string[]; onSelectedChange?: (stations: string[]) => void;
+  onPin?: (widget: DashboardWidget) => void; isPinned?: (widgetId: string) => boolean }) {
   const yesterday = () => new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const [catalog, setCatalog] = useState<ForecastCatalog | null>(null);
   const [cantons, setCantons] = useState<Cantons | null>(null);
   const [lakes, setLakes] = useState<Lakes | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
   const [workspace, setWorkspace] = useState<"map" | "calculator">("map");
   const [rangeError, setRangeError] = useState("");
   const [catalogError, setCatalogError] = useState("");
@@ -79,7 +79,7 @@ export default function SwitzerlandBeta({ mode, onModeChange, onPin, isPinned }:
   }, [cantons, lakes]);
   const selectedStations = selected.flatMap(id => catalog?.stations.filter(station => station.id === id) ?? []);
   function choose(id: string) {
-    setSelected(current => current.includes(id) ? current.filter(stationId => stationId !== id) : [...current, id]);
+    onSelectedChange?.(selected.includes(id) ? selected.filter(stationId => stationId !== id) : [...selected, id]);
   }
   const zoomMap = useCallback((factor: number, clientX?: number, clientY?: number) => {
     const bounds = mapElement.current?.getBoundingClientRect();
@@ -136,7 +136,7 @@ export default function SwitzerlandBeta({ mode, onModeChange, onPin, isPinned }:
   const dateLabel = (value: string) => new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
   return <div className="h-[calc(100dvh-4rem)] overflow-y-auto p-4 sm:p-6">
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">Station explorer <span className="ml-2 rounded border border-cyan-400/25 px-1.5 py-0.5 tracking-normal">BETA</span></p><h2 className="text-2xl font-semibold tracking-tight">Switzerland · GHI forecasts</h2><p className="mt-2 text-sm text-slate-400">Select a station to explore its forecast and observations.</p></div>
+      <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">GHI map</p><h2 className="text-2xl font-semibold tracking-tight">Switzerland · GHI forecasts</h2><p className="mt-2 text-sm text-slate-400">Select a station to explore its forecast and observations.</p></div>
       <div className="text-right text-xs text-slate-400"><p className="text-slate-200">{dateLabel(`${activeFrom}T00:00:00Z`)}{activeFrom !== activeTo ? ` – ${dateLabel(`${activeTo}T00:00:00Z`)}` : ""} {activeTo.slice(0, 4)}</p></div>
     </div>
     <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.02] p-4">
@@ -148,8 +148,8 @@ export default function SwitzerlandBeta({ mode, onModeChange, onPin, isPinned }:
       </form>}
     </div>
     <div className="mb-5 flex w-fit gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1" role="tablist" aria-label="Switzerland GHI tools">
-      <button type="button" role="tab" aria-selected={workspace === "map"} onClick={() => setWorkspace("map")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "map" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Map & forecasts</button>
-      <button type="button" role="tab" aria-selected={workspace === "calculator"} onClick={() => setWorkspace("calculator")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "calculator" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Delta calculator</button>
+      <button type="button" role="tab" aria-selected={workspace === "map"} onClick={() => setWorkspace("map")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "map" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Forecasts</button>
+      <button type="button" role="tab" aria-selected={workspace === "calculator"} onClick={() => setWorkspace("calculator")} className={`rounded-lg px-4 py-2 text-sm ${workspace === "calculator" ? "bg-cyan-400/15 text-cyan-200" : "text-slate-400 hover:bg-white/5"}`}>Calculator</button>
     </div>
     {(rangeError || catalogError || (workspace === "map" && mapError)) && <div role="alert" className="mb-4 rounded-xl border border-amber-300/30 p-4 text-sm text-amber-100">{rangeError || catalogError || mapError}<button className="ml-4 underline" onClick={() => { setRangeError(""); setAttempt(n => n + 1); }}>Retry</button></div>}
     {loading && !catalogError && <p role="status" className="mb-4 text-sm text-slate-400">Loading stations…</p>}

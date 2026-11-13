@@ -27,11 +27,12 @@ test('Fog map renders the reusable Switzerland base map without forecast control
   assert.doesNotMatch(html, /GHI weather stations|Select a station|Forecast period/);
 });
 
-test('Fog map follows Switzerland map Beta in dashboard navigation and renders locally', () => {
+test('Fog map Beta follows GHI map in dashboard navigation and renders locally', () => {
   const source = fs.readFileSync('src/app/dashboard/page.tsx', 'utf8');
   const betaIndex = source.indexOf('"switzerland-beta":');
   const fogIndex = source.indexOf('"fog-map":');
   assert.ok(betaIndex >= 0 && fogIndex > betaIndex);
-  assert.match(source, /label: "Fog map"/);
+  assert.match(source, /label: "GHI map"/);
+  assert.match(source, /label: "Fog map – Beta"/);
   assert.match(source, /activeView === "fog-map" && <FogMap \/>/);
 });

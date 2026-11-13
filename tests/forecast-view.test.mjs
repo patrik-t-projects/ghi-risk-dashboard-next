@@ -28,7 +28,8 @@ for (const mode of ['today', 'history']) test(`${mode} controls and map render b
   assert.match(html, /Map of Switzerland with canton boundaries/);
   assert.match(html, /Zoom map in/);
   assert.match(html, /Choose format/);
-  assert.match(html, /Delta calculator/);
+  assert.match(html, />Forecasts</);
+  assert.match(html, />Calculator</);
   assert.match(html, /Loading stations/);
   assert.doesNotMatch(html, /Supabase Storage/);
   if (mode === 'history') {
@@ -36,4 +37,12 @@ for (const mode of ['today', 'history']) test(`${mode} controls and map render b
     assert.match(html, /To \(UTC day\)/);
     assert.match(html, /Show range/);
   }
+});
+
+test('GHI map station selections persist per period until logout', () => {
+  const page = fs.readFileSync('src/app/dashboard/page.tsx', 'utf8');
+  assert.match(page, /energy-dashboard-ghi-stations:/);
+  assert.match(page, /localStorage\.removeItem\(`energy-dashboard-ghi-stations:/);
+  assert.match(page, /selected=\{ghiStationSelections\[betaMode\]\}/);
+  assert.match(page, /today: \[\], history: \[\]/);
 });

@@ -73,6 +73,7 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
     if (name === './ControlAreaBalanceChart') return { default: () => null };
     if (name === './ImbalanceForecastFrame') return { default: () => null };
     if (name === './PinPlotButton') return { default: () => null };
+    if (name === './PinnablePlotCard') return { default: ({ header, children }) => React.createElement(React.Fragment, null, header, children) };
     throw Error(name);
   });
   const html = renderToStaticMarkup(React.createElement(component.default, { mode, onModeChange: () => {} }));

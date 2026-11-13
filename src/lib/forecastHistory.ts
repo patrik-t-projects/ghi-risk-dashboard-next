@@ -48,7 +48,20 @@ export function seriesPoints(segments: ForecastSegments, key?: string): { x: str
 
 export function observationHoverPoints(segments: ForecastSegments) {
   const line = seriesPoints(segments);
-  return { line, hover: {
+  const native = { x: [] as string[], y: [] as (number | null)[], hovertemplate: [] as string[] };
+  line.x.forEach((time, index) => {
+    const value = line.y[index];
+    if (value !== null) {
+      native.x.push(time); native.y.push(value);
+      native.hovertemplate.push("Actual GHI: %{y:.1f} W/m²<extra></extra>");
+      return;
+    }
+    // An isolated numeric placeholder gives unified hover an exact x match while
+    // the surrounding nulls keep it out of the visible measured-GHI line.
+    native.x.push(time, time, time); native.y.push(null, 0, null);
+    native.hovertemplate.push("<extra></extra>", "<extra></extra>", "<extra></extra>");
+  });
+  return { line, native, hover: {
     x: line.x,
     y: line.y.map(value => value ?? 0),
     hovertemplate: line.y.map(value => value === null

@@ -5,7 +5,7 @@ import { fetchControlAreaBalance, type ControlAreaBalanceResponse } from "@/lib/
 import { createBalanceWidget, imbalanceHtmlWidget, type DashboardWidget } from "@/lib/customDashboard";
 import ControlAreaBalanceChart from "./ControlAreaBalanceChart";
 import ImbalanceForecastFrame from "./ImbalanceForecastFrame";
-import PinPlotButton from "./PinPlotButton";
+import PinnablePlotCard from "./PinnablePlotCard";
 
 function defaultHistoryDay() {
   const today = new Date().toISOString().slice(0, 10);
@@ -92,19 +92,19 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
       <button className="ml-4 underline" onClick={() => setAttempt(value => value + 1)}>Retry</button>{data && <p className="mt-1 text-xs">Showing the last successfully loaded data.</p>}</div>}
     {loading && <p role="status" className="mb-4 text-sm text-slate-400">Loading Swissgrid imbalance and AEP…</p>}
     {!loading && data && data.rows.length === 0 && <div className="rounded-xl border border-white/10 p-8 text-center text-sm text-slate-400">No Swissgrid values are available for this date range.</div>}
-    {data && data.rows.length > 0 && <div><div className="mb-2 flex justify-end">{onPin && <PinPlotButton onClick={() => onPin(balanceWidget)} pinned={isPinned?.(balanceWidget.id)} />}</div>
-      <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo} /></div>}
+    {data && data.rows.length > 0 && <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo}
+      onPin={onPin ? () => onPin(balanceWidget) : undefined} pinned={isPinned?.(balanceWidget.id)} />}
 
-    <section className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]" aria-label="Imbalance forecast">
-      <div className="flex items-center gap-2"><button type="button" aria-expanded={forecastOpen} aria-controls="imbalance-forecast-panel" onClick={toggleForecast}
-        className="flex flex-1 items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-white/[0.04]">
+    <PinnablePlotCard className="mt-5" onPin={onPin ? () => onPin(imbalanceHtmlWidget) : undefined} pinned={isPinned?.(imbalanceHtmlWidget.id)}
+      header={<button type="button" aria-expanded={forecastOpen} aria-controls="imbalance-forecast-panel" onClick={toggleForecast}
+        className="flex h-full w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-white/[0.04]">
         <span><span className="block text-sm font-semibold text-slate-200">Imbalance forecast</span>
           <span className="mt-1 block text-xs text-slate-500">HTML model dashboard</span></span>
         <span className="text-lg text-slate-400" aria-hidden="true">{forecastOpen ? "−" : "+"}</span>
-      </button>{onPin && <PinPlotButton onClick={() => onPin(imbalanceHtmlWidget)} pinned={isPinned?.(imbalanceHtmlWidget.id)} className="mr-4" />}</div>
+      </button>}>
       {forecastOpen && <div id="imbalance-forecast-panel" className="border-t border-white/10">
         <ImbalanceForecastFrame height={720} />
       </div>}
-    </section>
+    </PinnablePlotCard>
   </div>;
 }

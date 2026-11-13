@@ -93,10 +93,12 @@ test('plot pin controls use one icon button label and stay beside their plots', 
   const button = fs.readFileSync('src/components/PinPlotButton.tsx', 'utf8');
   const forecast = fs.readFileSync('src/components/ForecastChart.tsx', 'utf8');
   const balance = fs.readFileSync('src/components/ControlAreaBalance.tsx', 'utf8');
+  const card = fs.readFileSync('src/components/PinnablePlotCard.tsx', 'utf8');
   assert.match(button, /<svg/);
   assert.match(button, /Pin plot to dashboard/);
-  assert.match(forecast, /<PinPlotButton/);
-  assert.match(balance, /<PinPlotButton/);
+  assert.match(forecast, /<PinnablePlotCard/);
+  assert.match(balance, /<PinnablePlotCard/);
+  assert.match(card, /<PinPlotButton/);
   assert.doesNotMatch(forecast, /Pin to Dashboard/);
   assert.doesNotMatch(balance, />Pin plot</);
 });
