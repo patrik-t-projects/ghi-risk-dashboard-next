@@ -51,21 +51,21 @@ export function observationHoverPoints(segments: ForecastSegments) {
   const native = {
     x: [] as string[],
     y: [] as (number | null)[],
-    hovertemplate: [] as string[],
-    hoverinfo: [] as ("all" | "none")[],
+    hovertext: [] as string[],
+    hoverinfo: [] as ("text" | "none")[],
   };
   line.x.forEach((time, index) => {
     const value = line.y[index];
     if (value !== null) {
       native.x.push(time); native.y.push(value);
-      native.hovertemplate.push("Actual GHI: %{y:.1f} W/m²<extra></extra>");
-      native.hoverinfo.push("all");
+      native.hovertext.push(`Actual GHI: ${value.toFixed(1)} W/m²`);
+      native.hoverinfo.push("text");
       return;
     }
     // An isolated numeric placeholder gives unified hover an exact x match while
     // the surrounding nulls keep it out of the visible measured-GHI line.
     native.x.push(time, time, time); native.y.push(null, 0, null);
-    native.hovertemplate.push("<extra></extra>", "<extra></extra>", "<extra></extra>");
+    native.hovertext.push("", "", "");
     native.hoverinfo.push("none", "none", "none");
   });
   return { line, native, hover: {
