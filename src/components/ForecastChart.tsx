@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
 import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints } from "@/lib/forecastHistory";
+import PinPlotButton from "./PinPlotButton";
 
 function currentUtcMinute(): string {
   const now = new Date();
@@ -131,8 +132,7 @@ export default function ForecastChart({ data, station, model, period = "", heigh
   return <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800">
     <div className="border-b border-slate-100 px-5 py-4">
       <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{model === "icon_ch1" ? "ICON1" : "ICON2"} <span className="ml-2 font-normal text-slate-400">Global horizontal irradiance</span></h3>
-        {onPin && <button type="button" onClick={onPin} disabled={pinned}
-          className="rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-400">{pinned ? "Pinned" : "Pin to Dashboard"}</button>}</div>
+        {onPin && <PinPlotButton onClick={onPin} pinned={pinned} tone="light" />}</div>
       <div className="mt-3 flex max-h-28 flex-wrap items-center gap-x-4 gap-y-2 overflow-y-auto text-xs">
         {runGroups.map((run, index) => <label key={run.key} className="flex cursor-pointer items-center gap-2">
           <input type="checkbox" checked={!hiddenRuns.includes(run.key)} onChange={e => setHiddenRuns(current => e.target.checked ? current.filter(r => r !== run.key) : [...current, run.key])} />

@@ -5,6 +5,7 @@ import { fetchControlAreaBalance, type ControlAreaBalanceResponse } from "@/lib/
 import { createBalanceWidget, imbalanceHtmlWidget, type DashboardWidget } from "@/lib/customDashboard";
 import ControlAreaBalanceChart from "./ControlAreaBalanceChart";
 import ImbalanceForecastFrame from "./ImbalanceForecastFrame";
+import PinPlotButton from "./PinPlotButton";
 
 function defaultHistoryDay() {
   const today = new Date().toISOString().slice(0, 10);
@@ -61,9 +62,7 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
       <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">Swiss electricity system</p>
         <h2 className="text-2xl font-semibold tracking-tight">CH Imbalance &amp; AEP</h2>
         <p className="mt-2 text-sm text-slate-400">Quarter-hour Swiss control-area balance and balancing energy price.</p></div>
-      <div className="flex items-center gap-3 text-right text-xs text-slate-400"><p className="text-slate-200">UTC · 15-minute values</p>
-        {onPin && <button type="button" onClick={() => onPin(balanceWidget)} disabled={isPinned?.(balanceWidget.id)}
-          className="rounded border border-white/15 px-3 py-2 text-slate-300 hover:bg-white/5 disabled:cursor-default disabled:opacity-50">{isPinned?.(balanceWidget.id) ? "Pinned" : "Pin plot"}</button>}</div>
+      <div className="text-right text-xs text-slate-400"><p className="text-slate-200">UTC · 15-minute values</p></div>
     </div>
 
     <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.02] p-4">
@@ -93,7 +92,8 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
       <button className="ml-4 underline" onClick={() => setAttempt(value => value + 1)}>Retry</button>{data && <p className="mt-1 text-xs">Showing the last successfully loaded data.</p>}</div>}
     {loading && <p role="status" className="mb-4 text-sm text-slate-400">Loading Swissgrid imbalance and AEP…</p>}
     {!loading && data && data.rows.length === 0 && <div className="rounded-xl border border-white/10 p-8 text-center text-sm text-slate-400">No Swissgrid values are available for this date range.</div>}
-    {data && data.rows.length > 0 && <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo} />}
+    {data && data.rows.length > 0 && <div><div className="mb-2 flex justify-end">{onPin && <PinPlotButton onClick={() => onPin(balanceWidget)} pinned={isPinned?.(balanceWidget.id)} />}</div>
+      <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo} /></div>}
 
     <section className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]" aria-label="Imbalance forecast">
       <div className="flex items-center gap-2"><button type="button" aria-expanded={forecastOpen} aria-controls="imbalance-forecast-panel" onClick={toggleForecast}
@@ -101,8 +101,7 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
         <span><span className="block text-sm font-semibold text-slate-200">Imbalance forecast</span>
           <span className="mt-1 block text-xs text-slate-500">HTML model dashboard</span></span>
         <span className="text-lg text-slate-400" aria-hidden="true">{forecastOpen ? "−" : "+"}</span>
-      </button>{onPin && <button type="button" onClick={() => onPin(imbalanceHtmlWidget)} disabled={isPinned?.(imbalanceHtmlWidget.id)}
-        className="mr-4 rounded border border-white/15 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 disabled:cursor-default disabled:opacity-50">{isPinned?.(imbalanceHtmlWidget.id) ? "Pinned" : "Pin"}</button>}</div>
+      </button>{onPin && <PinPlotButton onClick={() => onPin(imbalanceHtmlWidget)} pinned={isPinned?.(imbalanceHtmlWidget.id)} className="mr-4" />}</div>
       {forecastOpen && <div id="imbalance-forecast-panel" className="border-t border-white/10">
         <ImbalanceForecastFrame height={720} />
       </div>}

@@ -72,6 +72,7 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
     if (name === '@/lib/customDashboard') return customDashboard;
     if (name === './ControlAreaBalanceChart') return { default: () => null };
     if (name === './ImbalanceForecastFrame') return { default: () => null };
+    if (name === './PinPlotButton') return { default: () => null };
     throw Error(name);
   });
   const html = renderToStaticMarkup(React.createElement(component.default, { mode, onModeChange: () => {} }));
