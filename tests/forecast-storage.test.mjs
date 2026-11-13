@@ -135,6 +135,7 @@ test('overlapping endpoints merge once and Actual GHI hover gaps remain safe', (
   assert.deepEqual(Array.from(actual.native.y), [0, null, 0, null]);
   assert.match(actual.native.hovertemplate[0], /Actual GHI/);
   assert.doesNotMatch(actual.native.hovertemplate[2], /Actual GHI/);
+  assert.deepEqual(Array.from(actual.native.hoverinfo), ['all', 'none', 'none', 'none']);
 });
 
 test('multi-day historical legends group runs by UTC hour and members by hour plus member', () => {
