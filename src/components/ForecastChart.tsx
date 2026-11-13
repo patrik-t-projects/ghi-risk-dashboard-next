@@ -11,9 +11,9 @@ function currentUtcMinute(): string {
   return now.toISOString().replace(/Z$/, "");
 }
 
-export default function ForecastChart({ data, station, model, period = "", height = 520, onPin, pinned = false }: {
+export default function ForecastChart({ data, station, model, period = "", height = 520, fillHeight = false, onPin, pinned = false }: {
   data: Pick<ForecastData, "series"> & { segments?: ForecastSegments }; station: StationForecast; model: "icon_ch1" | "icon_ch2"; period?: string;
-  height?: number; onPin?: () => void; pinned?: boolean;
+  height?: number; fillHeight?: boolean; onPin?: () => void; pinned?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
@@ -102,7 +102,7 @@ export default function ForecastChart({ data, station, model, period = "", heigh
           line: { color: "#16a34a", width: 3.2 }, connectgaps: false,
         });
         await Plotly.react(element, traces, {
-          autosize: true, height, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
+          autosize: true, height: fillHeight ? Math.max(1, element.clientHeight) : height, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
           margin: { l: 62, r: 18, t: 42, b: 105 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },
           xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", nticks: 7,
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
@@ -118,16 +118,24 @@ export default function ForecastChart({ data, station, model, period = "", heigh
         if (disposed) return;
         observer = new ResizeObserver(() => {
           cancelAnimationFrame(frame);
-          frame = requestAnimationFrame(() => { if (!disposed) Plotly.Plots.resize(element); });
+          frame = requestAnimationFrame(() => {
+            if (disposed) return;
+            if (fillHeight) void Plotly.relayout(element, {
+              width: Math.max(1, element.clientWidth),
+              height: Math.max(1, element.clientHeight),
+            });
+            else Plotly.Plots.resize(element);
+          });
         });
         observer.observe(element);
       } catch { if (!disposed) setError(true); }
     }
     void draw();
     return () => { disposed = true; observer?.disconnect(); cancelAnimationFrame(frame); };
-  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns, nowMinute, height]);
+  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns, nowMinute, height, fillHeight]);
 
   return <PinnablePlotCard tone="light" onPin={onPin} pinned={pinned}
+    className={fillHeight ? "flex h-full min-h-0 flex-col" : ""}
     header={<div className="px-5 py-4"><h3 className="font-semibold">{model === "icon_ch1" ? "ICON1" : "ICON2"} <span className="ml-2 font-normal text-slate-400">Global horizontal irradiance</span></h3></div>}>
     <div className="border-b border-slate-100 px-5 py-3">
       <div className="flex max-h-28 flex-wrap items-center gap-x-4 gap-y-2 overflow-y-auto text-xs">
@@ -139,6 +147,6 @@ export default function ForecastChart({ data, station, model, period = "", heigh
         <label className="flex cursor-pointer items-center gap-2 text-green-600"><input type="checkbox" checked={showActual} onChange={e => setShowActual(e.target.checked)} /><span>━ Actual GHI</span></label>
       </div>
     </div>
-    {error ? <div role="alert" className="p-8">Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} data-export-chart data-export-station={station.id} data-export-model={model} data-export-title={title} data-export-legend={exportLegend} style={{ height }} className="w-full" aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
+    {error ? <div role="alert" className={fillHeight ? "min-h-0 flex-1 p-8" : "p-8"}>Chart could not be loaded. <button className="underline" onClick={() => { setError(false); setAttempt(a => a + 1); }}>Retry</button></div> : <div ref={container} data-export-chart data-export-station={station.id} data-export-model={model} data-export-title={title} data-export-legend={exportLegend} style={fillHeight ? undefined : { height }} className={fillHeight ? "min-h-0 w-full flex-1" : "w-full"} aria-label={`${model === "icon_ch1" ? "ICON1" : "ICON2"} forecast and measured GHI for ${station.name}`} />}
   </PinnablePlotCard>;
 }

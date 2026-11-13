@@ -11,12 +11,12 @@ import ControlAreaBalanceChart from "./ControlAreaBalanceChart";
 import ImbalanceForecastFrame from "./ImbalanceForecastFrame";
 
 export default function DashboardWidgetView({ widget, height }: { widget: DashboardWidget; height: number }) {
-  if (widget.kind === "ghi") return <PinnedGhi widget={widget} height={Math.max(220, height - 180)} />;
-  if (widget.kind === "balance") return <PinnedBalance widget={widget} height={height} />;
+  if (widget.kind === "ghi") return <PinnedGhi widget={widget} />;
+  if (widget.kind === "balance") return <PinnedBalance widget={widget} />;
   return <ImbalanceForecastFrame height={height} />;
 }
 
-function PinnedGhi({ widget, height }: { widget: Extract<DashboardWidget, { kind: "ghi" }>; height: number }) {
+function PinnedGhi({ widget }: { widget: Extract<DashboardWidget, { kind: "ghi" }> }) {
   const [data, setData] = useState<ReturnType<typeof combineStationDays> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,10 +44,10 @@ function PinnedGhi({ widget, height }: { widget: Extract<DashboardWidget, { kind
   const to = widget.mode === "today" ? today : widget.to;
   if (error && !data) return <WidgetError message={error} retry={() => setAttempt(value => value + 1)} />;
   if (loading && !data) return <WidgetLoading label="GHI forecast" />;
-  return data ? <ForecastChart data={data} station={data.station} model={widget.model} period={`${from}:${to}`} height={height} /> : null;
+  return data ? <ForecastChart data={data} station={data.station} model={widget.model} period={`${from}:${to}`} fillHeight /> : null;
 }
 
-function PinnedBalance({ widget, height }: { widget: Extract<DashboardWidget, { kind: "balance" }>; height: number }) {
+function PinnedBalance({ widget }: { widget: Extract<DashboardWidget, { kind: "balance" }> }) {
   const [data, setData] = useState<ControlAreaBalanceResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,7 @@ function PinnedBalance({ widget, height }: { widget: Extract<DashboardWidget, { 
   if (error && !data) return <WidgetError message={error} retry={() => setAttempt(value => value + 1)} />;
   if (loading && !data) return <WidgetLoading label="CH Imbalance & AEP" />;
   if (!data?.rows.length) return <div className="grid h-full place-items-center p-6 text-sm text-slate-400">No values are available for this period.</div>;
-  return <ControlAreaBalanceChart rows={data.rows} from={from} to={to} height={height} />;
+  return <ControlAreaBalanceChart rows={data.rows} from={from} to={to} fillHeight />;
 }
 
 function WidgetLoading({ label }: { label: string }) {

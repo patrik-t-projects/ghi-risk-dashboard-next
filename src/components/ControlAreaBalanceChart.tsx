@@ -7,8 +7,8 @@ import PinnablePlotCard from "./PinnablePlotCard";
 const QUARTER_HOUR_MS = 15 * 60 * 1000;
 const HALF_INTERVAL_MS = QUARTER_HOUR_MS / 2;
 
-export default function ControlAreaBalanceChart({ rows, from, to, height = 590, onPin, pinned = false }: {
-  rows: ControlAreaBalanceRow[]; from: string; to: string; height?: number; onPin?: () => void; pinned?: boolean;
+export default function ControlAreaBalanceChart({ rows, from, to, height = 590, fillHeight = false, onPin, pinned = false }: {
+  rows: ControlAreaBalanceRow[]; from: string; to: string; height?: number; fillHeight?: boolean; onPin?: () => void; pinned?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
@@ -37,7 +37,7 @@ export default function ControlAreaBalanceChart({ rows, from, to, height = 590, 
             yaxis: "y2", line: { color: "#2563eb", width: 2.8 }, connectgaps: false,
             hovertemplate: "AEP: %{y:.2f} EUR/MWh<extra></extra>" },
         ], {
-          autosize: true, height, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", bargap: 0.06,
+          autosize: true, height: fillHeight ? Math.max(1, element.clientHeight) : height, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", bargap: 0.06,
           margin: { l: 72, r: 72, t: 30, b: 72 }, font: { family: "Arial, sans-serif", size: 12, color: "#334155" },
           xaxis: { title: { text: "Datetime UTC" }, type: "date", range: xRange, tickformat: "%d %b<br>%H:%M",
             hoverformat: "%d.%m.%Y, %H:%M UTC", gridcolor: "#e5e7eb", rangeslider: { visible: false },
@@ -51,7 +51,14 @@ export default function ControlAreaBalanceChart({ rows, from, to, height = 590, 
         if (disposed) return;
         observer = new ResizeObserver(() => {
           cancelAnimationFrame(frame);
-          frame = requestAnimationFrame(() => { if (!disposed) Plotly.Plots.resize(element); });
+          frame = requestAnimationFrame(() => {
+            if (disposed) return;
+            if (fillHeight) void Plotly.relayout(element, {
+              width: Math.max(1, element.clientWidth),
+              height: Math.max(1, element.clientHeight),
+            });
+            else Plotly.Plots.resize(element);
+          });
         });
         observer.observe(element);
       } catch { if (!disposed) setError(true); }
@@ -60,10 +67,10 @@ export default function ControlAreaBalanceChart({ rows, from, to, height = 590, 
     return () => {
       disposed = true; observer?.disconnect(); cancelAnimationFrame(frame);
     };
-  }, [rows, period, plotTimes, xRange, height]);
+  }, [rows, period, plotTimes, xRange, height, fillHeight]);
 
   if (error) return <div role="alert" className="rounded-xl border border-amber-300/20 p-8 text-amber-100">The imbalance chart could not be rendered.</div>;
-  return <PinnablePlotCard tone="light" onPin={onPin} pinned={pinned}>
-    <div ref={container} style={{ height }} className="w-full" aria-label="Swiss control-area imbalance and AEP chart" />
+  return <PinnablePlotCard tone="light" onPin={onPin} pinned={pinned} className={fillHeight ? "flex h-full min-h-0 flex-col" : ""}>
+    <div ref={container} style={fillHeight ? undefined : { height }} className={fillHeight ? "min-h-0 w-full flex-1" : "w-full"} aria-label="Swiss control-area imbalance and AEP chart" />
   </PinnablePlotCard>;
 }
