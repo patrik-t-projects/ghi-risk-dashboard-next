@@ -19,6 +19,11 @@ function compile(file, require = () => { throw Error('Unexpected dependency'); }
 
 const parser = compile('src/lib/controlAreaBalanceCsv.ts');
 const customDashboard = compile('src/lib/customDashboard.ts');
+const exporter = compile('src/lib/controlAreaBalanceExport.ts', name => {
+  if (name === './forecastExport') return { saveDownload: () => {} };
+  if (name === './controlAreaBalanceCsv') return {};
+  throw Error(name);
+}, { Blob });
 const csv = 'Date Time [UTC];Extra;Total System Imbalance;AE-Preis\n' +
   '19.09.2026 00:15;x;-31.97917667;21.04\n' +
   '19.09.2026 00:00;x;-49.40379333;23.14\n';
@@ -35,6 +40,14 @@ test('parses the exact Swissgrid semicolon schema into sorted UTC values', () =>
 test('accepts the future AEP EUR/MWh column name', () => {
   const data = parser.parseControlAreaBalanceCsv(csv.replace('AE-Preis', 'AEP EUR/MWh'));
   assert.equal(data.rows[0].aep, 23.14);
+});
+
+test('exports displayed balance values with the current Swissgrid column names', () => {
+  const data = parser.parseControlAreaBalanceCsv(csv);
+  const exported = exporter.controlAreaBalanceCsv(data.rows);
+  assert.match(exported, /^Date Time \[UTC\];Total System Imbalance;AEP EUR\/MWh\r?\n/);
+  assert.match(exported, /19\.09\.2026 00:00;-49\.40379333;23\.14/);
+  assert.match(exported, /19\.09\.2026 00:15;-31\.97917667;21\.04/);
 });
 
 test('rejects missing columns, duplicate timestamps and non-quarter-hour timestamps', () => {
@@ -69,6 +82,7 @@ for (const mode of ['today', 'history']) test(`${mode} imbalance controls render
   const component = compile('src/components/ControlAreaBalance.tsx', name => {
     if (name.startsWith('react')) return nodeRequire(name);
     if (name === '@/lib/controlAreaBalanceClient') return {};
+    if (name === '@/lib/controlAreaBalanceExport') return {};
     if (name === '@/lib/customDashboard') return customDashboard;
     if (name === './ControlAreaBalanceChart') return { default: () => null };
     if (name === './ImbalanceForecastFrame') return { default: () => null };
@@ -118,4 +132,13 @@ test('chart defines units, moving unified hover and a vertical cursor line', () 
   assert.match(source, /width: QUARTER_HOUR_MS/);
   assert.match(source, /HALF_INTERVAL_MS/);
   assert.match(source, /row\.time\.replace\(\/Z\$\/, ""\)/);
+  assert.match(source, /x0: nowMinute, x1: nowMinute/);
+  assert.match(source, /Now · \$\{nowMinute\.slice\(11, 16\)\} UTC/);
+  assert.match(source, /setInterval\(update, 60000\)/);
+  assert.match(source, /data-control-area-balance-chart/);
+  const component = fs.readFileSync('src/components/ControlAreaBalance.tsx', 'utf8');
+  assert.match(component, /Download/);
+  assert.match(component, /PNG — current plot/);
+  assert.match(component, /PDF — current plot/);
+  assert.match(component, /CSV — displayed values/);
 });

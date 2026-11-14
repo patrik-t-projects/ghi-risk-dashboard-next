@@ -87,8 +87,12 @@ export default function DashboardPage() {
         return;
       }
       try {
+        const remote = data.user.user_metadata?.dashboard_layout;
         const stored = localStorage.getItem(`energy-dashboard-layout:${data.user.id}`);
-        setCustomDashboard(stored ? normalizeCustomDashboard(JSON.parse(stored)) : defaultCustomDashboard());
+        const layout = remote ? normalizeCustomDashboard(remote) : stored ? normalizeCustomDashboard(JSON.parse(stored)) : defaultCustomDashboard();
+        setCustomDashboard(layout);
+        localStorage.setItem(`energy-dashboard-layout:${data.user.id}`, JSON.stringify(layout));
+        if (!remote && stored) void supabase.auth.updateUser({ data: { dashboard_layout: layout } });
       } catch { setCustomDashboard(defaultCustomDashboard()); }
       try {
         const stored = localStorage.getItem(`energy-dashboard-ghi-stations:${data.user.id}`);
@@ -122,15 +126,21 @@ export default function DashboardPage() {
 
   function saveCustomDashboard(next: CustomDashboardState) {
     setCustomDashboard(next);
-    if (user) localStorage.setItem(`energy-dashboard-layout:${user.id}`, JSON.stringify(next));
+    persistCustomDashboard(next);
+  }
+
+  function persistCustomDashboard(next: CustomDashboardState) {
+    if (user) {
+      localStorage.setItem(`energy-dashboard-layout:${user.id}`, JSON.stringify(next));
+      void supabase.auth.updateUser({ data: { dashboard_layout: next } });
+    }
   }
 
   function pinWidget(widget: DashboardWidget) {
-    setCustomDashboard(current => {
-      const next = pinDashboardWidget(current, widget);
-      if (user) localStorage.setItem(`energy-dashboard-layout:${user.id}`, JSON.stringify(next));
-      return next;
-    });
+    const next = pinDashboardWidget(customDashboard, widget);
+    if (next === customDashboard) return;
+    setCustomDashboard(next);
+    persistCustomDashboard(next);
   }
 
   const isPinned = (widgetId: string) => customDashboard.widgets.some(widget => widget.id === widgetId);

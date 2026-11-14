@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchControlAreaBalance, type ControlAreaBalanceResponse } from "@/lib/controlAreaBalanceClient";
+import { exportControlAreaBalanceCsv, exportControlAreaBalancePdf, exportControlAreaBalancePng } from "@/lib/controlAreaBalanceExport";
 import { createBalanceWidget, imbalanceHtmlWidget, type DashboardWidget } from "@/lib/customDashboard";
 import ControlAreaBalanceChart from "./ControlAreaBalanceChart";
 import ImbalanceForecastFrame from "./ImbalanceForecastFrame";
@@ -29,6 +30,9 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
   const [checked, setChecked] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [forecastOpen, setForecastOpen] = useState(false);
+  const [exporting, setExporting] = useState("");
+  const [exportError, setExportError] = useState("");
+  const chartRegion = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,6 +59,20 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
   const chartTo = mode === "today" ? today : range.to;
   function toggleForecast() {
     setForecastOpen(open => !open);
+  }
+  async function exportPlot(format: "csv" | "png" | "pdf") {
+    if (!data?.rows.length || exporting) return;
+    setExporting(format); setExportError("");
+    try {
+      if (format === "csv") exportControlAreaBalanceCsv(data.rows, chartFrom, chartTo);
+      else {
+        const chart = chartRegion.current?.querySelector<HTMLElement>("[data-control-area-balance-chart]");
+        if (!chart) throw new Error("Wait for the plot to finish loading.");
+        if (format === "png") await exportControlAreaBalancePng(chart, chartFrom, chartTo);
+        else await exportControlAreaBalancePdf(chart, chartFrom, chartTo);
+      }
+    } catch (caught) { setExportError(caught instanceof Error ? caught.message : "The export could not be created."); }
+    finally { setExporting(""); }
   }
   const balanceWidget = createBalanceWidget(mode, chartFrom, chartTo);
   return <div className="h-[calc(100dvh-4rem)] overflow-y-auto p-4 sm:p-6">
@@ -92,8 +110,21 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
       <button className="ml-4 underline" onClick={() => setAttempt(value => value + 1)}>Retry</button>{data && <p className="mt-1 text-xs">Showing the last successfully loaded data.</p>}</div>}
     {loading && <p role="status" className="mb-4 text-sm text-slate-400">Loading Swissgrid imbalance and AEP…</p>}
     {!loading && data && data.rows.length === 0 && <div className="rounded-xl border border-white/10 p-8 text-center text-sm text-slate-400">No Swissgrid values are available for this date range.</div>}
-    {data && data.rows.length > 0 && <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo}
-      onPin={onPin ? () => onPin(balanceWidget) : undefined} pinned={isPinned?.(balanceWidget.id)} />}
+    {data && data.rows.length > 0 && <div ref={chartRegion}>
+      <div className="mb-3 flex items-center justify-end gap-3 text-sm">
+        <label htmlFor="balance-export" className="text-slate-400">Download</label>
+        <select id="balance-export" value="" disabled={Boolean(exporting)} onChange={event => {
+          const format = event.target.value as "png" | "pdf" | "csv";
+          if (format) void exportPlot(format);
+        }} className="rounded-lg border border-white/15 bg-[#0d1d2b] px-3 py-2 text-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
+          <option value="">{exporting ? `Creating ${exporting.toUpperCase()}…` : "Choose format…"}</option>
+          <option value="png">PNG — current plot</option><option value="pdf">PDF — current plot</option><option value="csv">CSV — displayed values</option>
+        </select>
+      </div>
+      {exportError && <div role="alert" className="mb-3 text-sm text-amber-200">{exportError}</div>}
+      <ControlAreaBalanceChart rows={data.rows} from={chartFrom} to={chartTo}
+        onPin={onPin ? () => onPin(balanceWidget) : undefined} pinned={isPinned?.(balanceWidget.id)} />
+    </div>}
 
     <PinnablePlotCard className="mt-5" onPin={onPin ? () => onPin(imbalanceHtmlWidget) : undefined} pinned={isPinned?.(imbalanceHtmlWidget.id)}
       header={<button type="button" aria-expanded={forecastOpen} aria-controls="imbalance-forecast-panel" onClick={toggleForecast}

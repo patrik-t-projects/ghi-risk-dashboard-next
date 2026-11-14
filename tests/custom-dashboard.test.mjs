@@ -77,6 +77,9 @@ test('dashboard UI exposes edit-only layout controls and live widget renderers',
   const widgets = fs.readFileSync('src/components/DashboardWidgets.tsx', 'utf8');
   assert.match(page, /label: "Dashboard"/);
   assert.match(page, /energy-dashboard-layout:/);
+  assert.match(page, /user_metadata\?\.dashboard_layout/);
+  assert.match(page, /updateUser\(\{ data: \{ dashboard_layout: next \} \}\)/);
+  assert.doesNotMatch(page, /removeItem\(`energy-dashboard-layout:/);
   assert.match(view, /Edit Dashboard/);
   assert.match(view, /Save layout/);
   assert.match(view, /Add box/);
