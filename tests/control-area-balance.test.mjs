@@ -115,6 +115,26 @@ test('HTML imbalance forecast moved below the chart and out of sidebar navigatio
   assert.doesNotMatch(page, /label: "Imbalance CH model"/);
 });
 
+test('user-specific access removes the imbalance forecast section from rendering', () => {
+  const component = compile('src/components/ControlAreaBalance.tsx', name => {
+    if (name.startsWith('react')) return nodeRequire(name);
+    if (name === '@/lib/controlAreaBalanceClient') return {};
+    if (name === '@/lib/controlAreaBalanceExport') return {};
+    if (name === '@/lib/customDashboard') return customDashboard;
+    if (name === './ControlAreaBalanceChart') return { default: () => null };
+    if (name === './ImbalanceForecastFrame') return { default: () => null };
+    if (name === './PinnablePlotCard') return { default: ({ header, children }) => React.createElement(React.Fragment, null, header, children) };
+    throw Error(name);
+  });
+  const html = renderToStaticMarkup(React.createElement(component.default, {
+    mode: 'today', onModeChange: () => {}, showImbalanceForecast: false,
+  }));
+  assert.doesNotMatch(html, /Imbalance forecast/);
+  const page = fs.readFileSync('src/app/dashboard/page.tsx', 'utf8');
+  assert.match(page, /USER01_ID = "333dd76b-8317-4f50-9e92-b468a006da71"/);
+  assert.match(page, /showImbalanceForecast=\{user\?\.id !== USER01_ID\}/);
+});
+
 test('chart defines units, moving unified hover and a vertical cursor line', () => {
   const source = fs.readFileSync('src/components/ControlAreaBalanceChart.tsx', 'utf8');
   assert.match(source, /type: "bar"/);

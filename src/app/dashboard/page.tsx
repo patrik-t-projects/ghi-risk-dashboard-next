@@ -48,6 +48,7 @@ const DASHBOARDS = {
 type DashboardId = keyof typeof DASHBOARDS;
 type DashboardView = "empty" | DashboardId;
 type GhiStationSelections = { today: string[]; history: string[] };
+const USER01_ID = "333dd76b-8317-4f50-9e92-b468a006da71";
 const emptyStationSelections = (): GhiStationSelections => ({ today: [], history: [] });
 
 function normalizeStationSelections(value: unknown): GhiStationSelections {
@@ -341,7 +342,8 @@ export default function DashboardPage() {
 
         <div className="min-h-0 flex-1">
           {activeView === "dashboard" && <CustomDashboard state={customDashboard} onSave={saveCustomDashboard} />}
-          {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} onPin={pinWidget} isPinned={isPinned} />}
+          {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} onPin={pinWidget} isPinned={isPinned}
+            showImbalanceForecast={user?.id !== USER01_ID} />}
           {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode}
             selected={ghiStationSelections[betaMode]} onSelectedChange={stations => saveGhiStationSelection(betaMode, stations)}
             onPin={pinWidget} isPinned={isPinned} />}

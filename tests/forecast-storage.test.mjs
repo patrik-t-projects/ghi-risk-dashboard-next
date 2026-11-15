@@ -164,5 +164,6 @@ test('Actual GHI hover does not reuse stale values and plots current UTC minute'
   assert.match(source, /Now · \$\{nowMinute\.slice\(11, 16\)\} UTC/);
   assert.match(source, /color: "#000000", width: 1\.5/);
   assert.match(source, /setInterval\(update, 60000\)/);
+  assert.match(source, /unifiedhovertitle: \{ text: "%\{x\|%d %b<br>%H:%M\}" \}/);
   assert.doesNotMatch(source, /<span style=.*Actual GHI/);
 });

@@ -14,11 +14,12 @@ function defaultHistoryDay() {
   return yesterday.slice(0, 4) === today.slice(0, 4) ? yesterday : today;
 }
 
-export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned }: {
+export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned, showImbalanceForecast = true }: {
   mode: "today" | "history";
   onModeChange: (mode: "today" | "history") => void;
   onPin?: (widget: DashboardWidget) => void;
   isPinned?: (widgetId: string) => boolean;
+  showImbalanceForecast?: boolean;
 }) {
   const initialDay = defaultHistoryDay();
   const [from, setFrom] = useState(initialDay);
@@ -126,7 +127,7 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
         onPin={onPin ? () => onPin(balanceWidget) : undefined} pinned={isPinned?.(balanceWidget.id)} />
     </div>}
 
-    <PinnablePlotCard className="mt-5" onPin={onPin ? () => onPin(imbalanceHtmlWidget) : undefined} pinned={isPinned?.(imbalanceHtmlWidget.id)}
+    {showImbalanceForecast && <PinnablePlotCard className="mt-5" onPin={onPin ? () => onPin(imbalanceHtmlWidget) : undefined} pinned={isPinned?.(imbalanceHtmlWidget.id)}
       header={<button type="button" aria-expanded={forecastOpen} aria-controls="imbalance-forecast-panel" onClick={toggleForecast}
         className="flex h-full w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-white/[0.04]">
         <span><span className="block text-sm font-semibold text-slate-200">Imbalance forecast</span>
@@ -136,6 +137,6 @@ export default function ControlAreaBalance({ mode, onModeChange, onPin, isPinned
       {forecastOpen && <div id="imbalance-forecast-panel" className="border-t border-white/10">
         <ImbalanceForecastFrame height={720} />
       </div>}
-    </PinnablePlotCard>
+    </PinnablePlotCard>}
   </div>;
 }

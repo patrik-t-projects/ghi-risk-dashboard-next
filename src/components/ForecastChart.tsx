@@ -105,6 +105,7 @@ export default function ForecastChart({ data, station, model, period = "", heigh
           autosize: true, height: fillHeight ? Math.max(1, element.clientHeight) : height, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
           margin: { l: 62, r: 18, t: 42, b: 105 }, font: { family: "Arial, sans-serif", size: 11, color: "#334155" },
           xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", nticks: 7,
+            unifiedhovertitle: { text: "%{x|%d %b<br>%H:%M}" },
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
           yaxis: { title: { text: "GHI [W/m²]" }, rangemode: "tozero", gridcolor: "#e5e7eb" },
           shapes: [{ type: "line", xref: "x", yref: "paper", x0: nowMinute, x1: nowMinute, y0: 0, y1: 1,

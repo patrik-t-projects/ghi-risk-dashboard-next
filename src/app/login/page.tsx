@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const inputClass = "w-full mb-4 rounded-lg bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:border-cyan-400";
@@ -55,7 +56,15 @@ export default function LoginPage() {
             <input id="username" name="username" className={inputClass} autoComplete="username" autoCapitalize="none" required pattern="[A-Za-z0-9_]{3,30}" title="3–30 letters, numbers, or underscores" value={username} onChange={e => setUsername(e.target.value)} />
           </>}
           <label htmlFor="password" className="block text-sm text-slate-300 mb-2">Password</label>
-          <input id="password" name="password" className={inputClass} type="password" autoComplete={signup ? "new-password" : "current-password"} required value={password} onChange={e => setPassword(e.target.value)} />
+          <div className="relative mb-4">
+            <input id="password" name="password" className={`${inputClass} mb-0 pr-20`} type={showPassword ? "text" : "password"}
+              autoComplete={signup ? "new-password" : "current-password"} required value={password} onChange={e => setPassword(e.target.value)} />
+            <button type="button" aria-pressed={showPassword} aria-label={`${showPassword ? "Hide" : "Show"} password`}
+              onClick={() => setShowPassword(visible => !visible)}
+              className="absolute inset-y-0 right-0 flex items-center px-4 text-sm text-cyan-300 transition hover:text-cyan-200">
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
           <button type="submit" className="w-full rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-4 py-3 disabled:opacity-50" disabled={loading}>{loading ? "Please wait…" : signup ? "Create account" : "Sign in"}</button>
           <button type="button" className="w-full mt-3 rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-3 disabled:opacity-50" disabled={loading} onClick={() => { setSignup(!signup); setMessage(""); }}>{signup ? "Back to sign in" : "Sign up"}</button>
         </form>
