@@ -54,3 +54,42 @@ dashboard=forecast-station-monthly&station=<STATION>&month=<YYYY-MM>
 `daily.csv` is overwritten as today's data changes. Monthly files are overwritten when their archived contents change. Station IDs must match `^[A-Z0-9_-]+$`. The Switzerland map uses a bundled station catalog, loads only selected stations, and downloads only the monthly files that overlap the requested historical range.
 
 The legacy `forecast-daily` upload target remains available for compatibility, but the Switzerland map no longer reads the all-stations daily files.
+
+## Fog forecast storage contract
+
+Fog probability CSV files use the same private `forecast-data` bucket and signed-upload endpoint:
+
+```text
+dashboard=forecast-fog-daily&date=<YYYY-MM-DD>
+dashboard=forecast-fog-monthly&month=<YYYY-MM>
+```
+
+The signed targets are:
+
+```text
+forecast/fog/daily.csv
+forecast/fog/monthly/<YYYY-MM>.csv
+```
+
+Both targets use `text/csv` and overwrite existing objects. The Pi refreshes `daily.csv` as ICON2 data becomes available and only replaces monthly objects when their contents change. Each file contains all 11 locations and model levels 60–80. The period is determined from `reference_datetime`, not the forecast-valid `datetime`.
+
+Required columns, in contract order:
+
+```text
+model
+reference_datetime
+datetime
+location_id
+location_latitude
+location_longitude
+grid_latitude
+grid_longitude
+grid_distance_km
+model_level
+height_asl_m
+surface_height_asl_m
+height_agl_m
+fog_probability
+```
+
+`fog_probability` must be between 0 and 1 inclusive.

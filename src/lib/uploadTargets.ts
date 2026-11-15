@@ -26,6 +26,14 @@ export function resolveUploadTarget(dashboard: string | null, date: string | nul
       : "swissgrid/control-area-balance-today.csv",
     contentType: "text/csv; charset=utf-8" };
   }
+  if (dashboard === "forecast-fog-daily") {
+    if (!validDate(date) || station !== null || month !== null) return null;
+    return { bucket: "forecast-data", path: "forecast/fog/daily.csv", contentType: "text/csv" };
+  }
+  if (dashboard === "forecast-fog-monthly") {
+    if (!validMonth(month) || date !== null || station !== null) return null;
+    return { bucket: "forecast-data", path: `forecast/fog/monthly/${month}.csv`, contentType: "text/csv" };
+  }
   if (dashboard === "forecast-station-daily") {
     if (!validStation(station) || !validDate(date) || month !== null) return null;
     return { bucket: "forecast-data", path: `forecast/stations/${station}/daily.csv`, contentType: "text/csv" };
