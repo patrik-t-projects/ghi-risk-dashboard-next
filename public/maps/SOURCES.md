@@ -8,6 +8,15 @@ Switzerland canton boundaries: Federal Office of Topography swisstopo, distribut
 
 Geometry is served locally; no third-party map tiles or API keys are required. The displayed station location uses the first available ICON coordinate pair in the sample CSV.
 
+Postal-code boundary lines: Federal Office of Topography swisstopo, Official directory of towns and cities.
+
+- Dataset: `ch.swisstopo-vd.ortschaftenverzeichnis_plz`, AMTOVZ ZIP layer, 1 November 2026
+- Source catalog: https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo-vd.ortschaftenverzeichnis_plz
+- Product information: https://www.swisstopo.admin.ch/en/official-directory-of-towns-and-cities
+- Geometry: transformed from LV95 to WGS84 and simplified to a boundaries-only local GeoJSON asset
+- Hover lookup: official GeoAdmin identify service, requested only after pointer movement pauses
+- License source: https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices
+
 Major lake areas: Federal Office of Topography swisstopo, swissTLMRegio.
 
 - Dataset: swissTLMRegio 2025, Hydrography / Lake

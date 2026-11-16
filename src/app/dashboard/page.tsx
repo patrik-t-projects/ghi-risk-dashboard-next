@@ -350,7 +350,7 @@ export default function DashboardPage() {
           {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode}
             selected={ghiStationSelections[betaMode]} onSelectedChange={stations => saveGhiStationSelection(betaMode, stations)}
             onPin={pinWidget} isPinned={isPinned} resolution={ghiResolution} />}
-          {activeView === "fog-map" && <FogMap />}
+          {activeView === "fog-map" && <FogMap resolution={ghiResolution} />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">
               <div className="max-w-md text-center">
