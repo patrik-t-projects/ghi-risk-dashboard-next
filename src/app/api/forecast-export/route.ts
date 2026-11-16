@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { readCsv, writeCsv } from "@/lib/forecastCsv";
 import { ForecastSourceError, loadStationForecast, validDay } from "@/lib/forecastSource";
+import { interpolateForecastCsvRows, normalizeGhiForecastResolution } from "@/lib/ghiResolution";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
   const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user) return Response.json({ error: "Please sign in again." }, { status: 401, headers });
+  const resolution = normalizeGhiForecastResolution(data.user.user_metadata?.ghi_forecast_resolution);
 
   const params = new URL(request.url).searchParams;
   const view = params.get("view") ?? "today";
@@ -49,10 +51,11 @@ export async function GET(request: Request) {
     }
     if (!header || !rows.length) throw new ForecastSourceError("No data was found for the selected stations.", 404);
     const period = from === to ? from : `${from}_to_${to}`;
-    return new Response(writeCsv([header, ...rows]), { headers: {
+    const exportRows = interpolateForecastCsvRows(header, rows, resolution);
+    return new Response(writeCsv([header, ...exportRows]), { headers: {
       ...headers,
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="icon_ghi_selected_stations_${period}.csv"`,
+      "Content-Disposition": `attachment; filename="icon_ghi_selected_stations_${period}_${resolution}.csv"`,
     } });
   } catch (caught) {
     return Response.json({ error: caught instanceof ForecastSourceError ? caught.message : "Forecast export is temporarily unavailable." },

@@ -6,17 +6,18 @@ import { combineStationDays } from "@/lib/forecastHistory";
 import type { StationForecastResponse } from "@/lib/forecastCsv";
 import { fetchControlAreaBalance, type ControlAreaBalanceResponse } from "@/lib/controlAreaBalanceClient";
 import type { DashboardWidget } from "@/lib/customDashboard";
+import type { GhiForecastResolution } from "@/lib/ghiResolution";
 import ForecastChart from "./ForecastChart";
 import ControlAreaBalanceChart from "./ControlAreaBalanceChart";
 import ImbalanceForecastFrame from "./ImbalanceForecastFrame";
 
-export default function DashboardWidgetView({ widget, height }: { widget: DashboardWidget; height: number }) {
-  if (widget.kind === "ghi") return <PinnedGhi widget={widget} />;
+export default function DashboardWidgetView({ widget, height, ghiResolution }: { widget: DashboardWidget; height: number; ghiResolution: GhiForecastResolution }) {
+  if (widget.kind === "ghi") return <PinnedGhi widget={widget} resolution={ghiResolution} />;
   if (widget.kind === "balance") return <PinnedBalance widget={widget} />;
   return <ImbalanceForecastFrame height={height} />;
 }
 
-function PinnedGhi({ widget }: { widget: Extract<DashboardWidget, { kind: "ghi" }> }) {
+function PinnedGhi({ widget, resolution }: { widget: Extract<DashboardWidget, { kind: "ghi" }>; resolution: GhiForecastResolution }) {
   const [data, setData] = useState<ReturnType<typeof combineStationDays> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,7 +45,7 @@ function PinnedGhi({ widget }: { widget: Extract<DashboardWidget, { kind: "ghi" 
   const to = widget.mode === "today" ? today : widget.to;
   if (error && !data) return <WidgetError message={error} retry={() => setAttempt(value => value + 1)} />;
   if (loading && !data) return <WidgetLoading label="GHI forecast" />;
-  return data ? <ForecastChart data={data} station={data.station} model={widget.model} period={`${from}:${to}`} fillHeight /> : null;
+  return data ? <ForecastChart data={data} station={data.station} model={widget.model} period={`${from}:${to}`} fillHeight resolution={resolution} /> : null;
 }
 
 function PinnedBalance({ widget }: { widget: Extract<DashboardWidget, { kind: "balance" }> }) {

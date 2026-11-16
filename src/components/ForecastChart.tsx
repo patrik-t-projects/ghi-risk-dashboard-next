@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
 import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints } from "@/lib/forecastHistory";
+import { interpolateForecastSegments, type GhiForecastResolution } from "@/lib/ghiResolution";
 import PinnablePlotCard from "./PinnablePlotCard";
 
 function currentUtcMinute(): string {
@@ -11,9 +12,10 @@ function currentUtcMinute(): string {
   return now.toISOString().replace(/Z$/, "");
 }
 
-export default function ForecastChart({ data, station, model, period = "", height = 520, fillHeight = false, onPin, pinned = false }: {
+export default function ForecastChart({ data, station, model, period = "", height = 520, fillHeight = false, onPin, pinned = false,
+  resolution = "hourly" }: {
   data: Pick<ForecastData, "series"> & { segments?: ForecastSegments }; station: StationForecast; model: "icon_ch1" | "icon_ch2"; period?: string;
-  height?: number; fillHeight?: boolean; onPin?: () => void; pinned?: boolean;
+  height?: number; fillHeight?: boolean; onPin?: () => void; pinned?: boolean; resolution?: GhiForecastResolution;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
@@ -72,7 +74,8 @@ export default function ForecastChart({ data, station, model, period = "", heigh
         const latestRunGroup = modelRunGroups.at(-1)?.key;
         const shownMemberLegends = new Set<string>();
         const traces: Record<string, unknown>[] = [];
-        const segments = data.segments ?? [{ series: data.series, rows: station.rows }];
+        const sourceSegments = data.segments ?? [{ series: data.series, rows: station.rows }];
+        const segments = interpolateForecastSegments(sourceSegments, resolution);
         data.series.forEach((series) => {
           if (series.model !== model) return;
           const runIdentity = runtimeLegendIdentity(series.run, groupHistoricalRuns);
@@ -133,7 +136,7 @@ export default function ForecastChart({ data, station, model, period = "", heigh
     }
     void draw();
     return () => { disposed = true; observer?.disconnect(); cancelAnimationFrame(frame); };
-  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns, nowMinute, height, fillHeight]);
+  }, [data, station, model, hiddenRuns, members, showActual, attempt, period, groupHistoricalRuns, nowMinute, height, fillHeight, resolution]);
 
   return <PinnablePlotCard tone="light" onPin={onPin} pinned={pinned}
     className={fillHeight ? "flex h-full min-h-0 flex-col" : ""}

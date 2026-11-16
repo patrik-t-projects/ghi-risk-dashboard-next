@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { normalizeGhiForecastResolution, type GhiForecastResolution } from "@/lib/ghiResolution";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function AccountPage() {
   const [hasUsername, setHasUsername] = useState(false);
   const [email, setEmail] = useState("");
   const [currentEmail, setCurrentEmail] = useState("");
+  const [ghiResolution, setGhiResolution] = useState<GhiForecastResolution>("hourly");
   const [message, setMessage] = useState("");
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,6 +29,7 @@ export default function AccountPage() {
         setEmail(data.user.email ?? "");
         setCurrentEmail(data.user.email ?? "");
         setUsername(profile?.username ?? "");
+        setGhiResolution(normalizeGhiForecastResolution(data.user.user_metadata?.ghi_forecast_resolution));
         setHasUsername(Boolean(profile));
         setReady(true);
       } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to load your account."); }
@@ -46,10 +49,12 @@ export default function AccountPage() {
       if (error) throw new Error(error.code === "23505" ? "That username is already taken. Choose another." : "Could not save your username. Please try again.");
       setUsername(normalized);
       setHasUsername(true);
+      const { error: preferenceError } = await supabase.auth.updateUser({ data: { ghi_forecast_resolution: ghiResolution } });
+      if (preferenceError) throw new Error("Username saved. GHI forecast resolution was not saved: " + preferenceError.message);
       if (email.trim() !== currentEmail) {
         const { error: emailError } = await supabase.auth.updateUser({ email: email.trim() });
-        if (emailError) throw new Error("Username saved. Email was not changed: " + emailError.message);
-        setMessage("Username saved. Check your email for confirmation links to complete the email change. Your current email remains active until confirmed.");
+        if (emailError) throw new Error("Username and GHI forecast resolution saved. Email was not changed: " + emailError.message);
+        setMessage("Account settings saved. Check your email for confirmation links to complete the email change. Your current email remains active until confirmed.");
       } else { setMessage("Account saved."); }
     } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to save your account."); }
     finally { setSaving(false); }
@@ -67,6 +72,13 @@ export default function AccountPage() {
             <p className="text-sm text-slate-400 mb-5">3–30 letters, numbers, or underscores. Usernames are not case-sensitive.</p>
             <label htmlFor="email">Email</label>
             <input id="email" name="email" className={inputClass} type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} />
+            <label htmlFor="ghi-resolution">GHI forecast resolution</label>
+            <select id="ghi-resolution" name="ghi-resolution" className={inputClass} value={ghiResolution}
+              onChange={event => setGhiResolution(normalizeGhiForecastResolution(event.target.value))}>
+              <option value="hourly">Hourly — original model values</option>
+              <option value="15min">15 minutes — linear interpolation</option>
+            </select>
+            <p className="-mt-3 mb-5 text-sm text-slate-400">Applies to GHI map plots, pinned GHI plots and GHI CSV downloads.</p>
             <button type="submit" className="w-full rounded-lg bg-cyan-500 px-4 py-3 font-semibold text-slate-950 disabled:opacity-50" disabled={!ready || saving}>{saving ? "Saving…" : "Save account"}</button>
           </fieldset>
         </form>

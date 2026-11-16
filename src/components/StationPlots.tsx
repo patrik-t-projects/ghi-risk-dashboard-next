@@ -5,12 +5,13 @@ import { fetchForecast } from "@/lib/forecastClient";
 import { combineStationDays } from "@/lib/forecastHistory";
 import type { StationForecastResponse, StationSummary } from "@/lib/forecastCsv";
 import { createGhiWidget, type DashboardWidget } from "@/lib/customDashboard";
+import type { GhiForecastResolution } from "@/lib/ghiResolution";
 import ForecastChart from "./ForecastChart";
 import styles from "./SwitzerlandBeta.module.css";
 
 type Combined = ReturnType<typeof combineStationDays>;
 
-export default function StationPlots({ station, mode, from, to, refreshToken, onClose, onPin, isPinned }: {
+export default function StationPlots({ station, mode, from, to, refreshToken, onClose, onPin, isPinned, resolution }: {
   station: StationSummary;
   mode: "today" | "history";
   from: string;
@@ -19,6 +20,7 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
   onClose: () => void;
   onPin?: (widget: DashboardWidget) => void;
   isPinned?: (widgetId: string) => boolean;
+  resolution: GhiForecastResolution;
 }) {
   const [data, setData] = useState<Combined | null>(null);
   const [error, setError] = useState("");
@@ -65,7 +67,7 @@ export default function StationPlots({ station, mode, from, to, refreshToken, on
     {data && <div className={styles.chartGrid}>{(["icon_ch1", "icon_ch2"] as const).map(model => {
       const widget = createGhiWidget(station, model, mode, from, to);
       return <ForecastChart key={model} data={data} station={data.station} model={model} period={`${from}:${to}`}
-        onPin={onPin ? () => onPin(widget) : undefined} pinned={isPinned?.(widget.id)} />;
+        onPin={onPin ? () => onPin(widget) : undefined} pinned={isPinned?.(widget.id)} resolution={resolution} />;
     })}</div>}
   </section>;
 }

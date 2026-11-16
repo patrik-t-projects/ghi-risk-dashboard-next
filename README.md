@@ -55,6 +55,10 @@ dashboard=forecast-station-monthly&station=<STATION>&month=<YYYY-MM>
 
 The legacy `forecast-daily` upload target remains available for compatibility, but the Switzerland map no longer reads the all-stations daily files.
 
+### Per-user GHI forecast resolution
+
+Each account stores `ghi_forecast_resolution` in Supabase Auth user metadata. Supported values are `hourly` (the default, preserving uploaded forecast values) and `15min` (linear interpolation between consecutive full-hour anchors). The preference applies to GHI map plots, pinned GHI dashboard plots and authenticated GHI CSV exports. Measured GHI and non-GHI dashboards are not transformed.
+
 ## Fog forecast storage contract
 
 Fog probability CSV files use the same private `forecast-data` bucket and signed-upload endpoint:

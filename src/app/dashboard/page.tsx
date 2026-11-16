@@ -8,6 +8,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { defaultCustomDashboard, normalizeCustomDashboard, pinDashboardWidget,
   type CustomDashboardState, type DashboardWidget } from "@/lib/customDashboard";
+import { normalizeGhiForecastResolution, type GhiForecastResolution } from "@/lib/ghiResolution";
 
 const SwitzerlandBeta = dynamic(() => import("@/components/SwitzerlandBeta"), {
   ssr: false,
@@ -71,6 +72,7 @@ export default function DashboardPage() {
   const [balanceMode, setBalanceMode] = useState<"today" | "history">("today");
   const [customDashboard, setCustomDashboard] = useState<CustomDashboardState>(defaultCustomDashboard);
   const [ghiStationSelections, setGhiStationSelections] = useState<GhiStationSelections>(emptyStationSelections);
+  const [ghiResolution, setGhiResolution] = useState<GhiForecastResolution>("hourly");
 
   useEffect(() => {
     async function loadUser() {
@@ -87,6 +89,7 @@ export default function DashboardPage() {
         router.replace("/account");
         return;
       }
+      setGhiResolution(normalizeGhiForecastResolution(data.user.user_metadata?.ghi_forecast_resolution));
       try {
         const remote = data.user.user_metadata?.dashboard_layout;
         const stored = localStorage.getItem(`energy-dashboard-layout:${data.user.id}`);
@@ -341,12 +344,12 @@ export default function DashboardPage() {
         </header>
 
         <div className="min-h-0 flex-1">
-          {activeView === "dashboard" && <CustomDashboard state={customDashboard} onSave={saveCustomDashboard} />}
+          {activeView === "dashboard" && <CustomDashboard state={customDashboard} onSave={saveCustomDashboard} ghiResolution={ghiResolution} />}
           {activeView === "control-area-balance" && <ControlAreaBalance mode={balanceMode} onModeChange={setBalanceMode} onPin={pinWidget} isPinned={isPinned}
             showImbalanceForecast={user?.id !== USER01_ID} />}
           {activeView === "switzerland-beta" && <SwitzerlandBeta mode={betaMode} onModeChange={setBetaMode}
             selected={ghiStationSelections[betaMode]} onSelectedChange={stations => saveGhiStationSelection(betaMode, stations)}
-            onPin={pinWidget} isPinned={isPinned} />}
+            onPin={pinWidget} isPinned={isPinned} resolution={ghiResolution} />}
           {activeView === "fog-map" && <FogMap />}
           {activeView === "empty" && (
             <div className="flex h-full min-h-[calc(100vh-4rem)] items-center justify-center p-8">

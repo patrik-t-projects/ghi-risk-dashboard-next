@@ -4,6 +4,7 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 import { addDashboardBox, assignDashboardWidget, canPlaceDashboardBox, DASHBOARD_CANVAS_WIDTH,
   MIN_DASHBOARD_BOX_HEIGHT, MIN_DASHBOARD_BOX_WIDTH, removeDashboardWidget, swapDashboardBoxPositions,
   updateDashboardBoxLayout, type CustomDashboardState, type DashboardBox } from "@/lib/customDashboard";
+import type { GhiForecastResolution } from "@/lib/ghiResolution";
 import DashboardWidgetView from "./DashboardWidgets";
 
 type ResizeEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -29,7 +30,9 @@ const resizeHandles: { edge: ResizeEdge; className: string; markerClass: string;
   { edge: "sw", className: "bottom-0 left-0 h-4 w-4", markerClass: "bottom-0 left-0 h-3 w-3", cursor: "nesw-resize" },
 ];
 
-export default function CustomDashboard({ state, onSave }: { state: CustomDashboardState; onSave: (state: CustomDashboardState) => void }) {
+export default function CustomDashboard({ state, onSave, ghiResolution }: {
+  state: CustomDashboardState; onSave: (state: CustomDashboardState) => void; ghiResolution: GhiForecastResolution;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(state);
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
@@ -148,7 +151,7 @@ export default function CustomDashboard({ state, onSave }: { state: CustomDashbo
                 style={{ cursor: handle.cursor }} className={`absolute ${handle.className}`}>
                 <span className={`pointer-events-none absolute rounded-sm border border-cyan-200/70 bg-[#0b1824] ${handle.markerClass}`} />
               </span>)}
-            </div> : widget ? <DashboardWidgetView widget={widget} height={box.height - 2} />
+            </div> : widget ? <DashboardWidgetView widget={widget} height={box.height - 2} ghiResolution={ghiResolution} />
               : <div className="grid h-full place-items-center p-6 text-center text-sm text-slate-500">Empty dashboard box<br />Use Edit Dashboard to assign a pinned plot.</div>}
           </section>;
         })}
