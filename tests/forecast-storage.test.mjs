@@ -156,6 +156,23 @@ test('multi-day historical legends group runs by UTC hour and members by hour pl
   }
 });
 
+test('ICON1 and ICON2 use one shared GHI y-axis range from the paired station payload', () => {
+  const segments = [{
+    series: [
+      { key: 'icon1', model: 'icon_ch1', run: '20261118T000000Z', member: 'control' },
+      { key: 'icon2', model: 'icon_ch2', run: '20261118T000000Z', member: 'control' },
+    ],
+    rows: [
+      { time: '2026-11-18T10:00:00Z', measured: 275, values: [120, 310] },
+      { time: '2026-11-18T11:00:00Z', measured: null, values: [150, 290] },
+    ],
+  }];
+  assert.deepEqual(Array.from(history.sharedGhiRange(segments)), [0, 350]);
+  const chart = fs.readFileSync('src/components/ForecastChart.tsx', 'utf8');
+  assert.match(chart, /const yRange = sharedGhiRange\(segments\)/);
+  assert.match(chart, /yaxis: \{ title: \{ text: "GHI \[W\/m²\]" \}, range: yRange/);
+});
+
 test('Actual GHI hover does not reuse stale values and plots current UTC minute', () => {
   const source = fs.readFileSync('src/components/ForecastChart.tsx', 'utf8');
   assert.match(source, /\.\.\.actual\.native/);

@@ -46,6 +46,32 @@ export function seriesPoints(segments: ForecastSegments, key?: string): { x: str
   return { x, y };
 }
 
+/** One deterministic GHI scale for the complete station payload. Both model
+ * charts receive the same segments, including when rendered in separate
+ * dashboard boxes, so this keeps ICON1 and ICON2 directly comparable. */
+export function sharedGhiRange(segments: ForecastSegments): [number, number] {
+  let minimum = 0;
+  let maximum = 0;
+  for (const segment of segments) {
+    for (const row of segment.rows) {
+      if (row.measured !== null && Number.isFinite(row.measured)) {
+        minimum = Math.min(minimum, row.measured);
+        maximum = Math.max(maximum, row.measured);
+      }
+      for (const value of row.values) {
+        if (value === null || !Number.isFinite(value)) continue;
+        minimum = Math.min(minimum, value);
+        maximum = Math.max(maximum, value);
+      }
+    }
+  }
+  const extent = Math.max(Math.abs(minimum), Math.abs(maximum));
+  const step = extent <= 100 ? 10 : extent <= 500 ? 50 : 100;
+  const lower = minimum < 0 ? Math.floor(minimum * 1.05 / step) * step : 0;
+  const upper = maximum > 0 ? Math.ceil(maximum * 1.05 / step) * step : step;
+  return [lower, upper];
+}
+
 export function observationHoverPoints(segments: ForecastSegments) {
   const line = seriesPoints(segments);
   const native = {

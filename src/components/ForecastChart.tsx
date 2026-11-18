@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ForecastData, ForecastSegments, StationForecast } from "@/lib/forecastCsv";
-import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints } from "@/lib/forecastHistory";
+import { memberLegendIdentity, observationHoverPoints, runtimeLegendIdentity, seriesPoints, sharedGhiRange } from "@/lib/forecastHistory";
 import { interpolateForecastSegments, type GhiForecastResolution } from "@/lib/ghiResolution";
 import PinnablePlotCard from "./PinnablePlotCard";
 
@@ -76,6 +76,7 @@ export default function ForecastChart({ data, station, model, period = "", heigh
         const traces: Record<string, unknown>[] = [];
         const sourceSegments = data.segments ?? [{ series: data.series, rows: station.rows }];
         const segments = interpolateForecastSegments(sourceSegments, resolution);
+        const yRange = sharedGhiRange(segments);
         data.series.forEach((series) => {
           if (series.model !== model) return;
           const runIdentity = runtimeLegendIdentity(series.run, groupHistoricalRuns);
@@ -110,7 +111,7 @@ export default function ForecastChart({ data, station, model, period = "", heigh
           xaxis: { title: { text: "Datetime UTC" }, type: "date", tickformat: "%d %b<br>%H:%M", gridcolor: "#e5e7eb", nticks: 7,
             unifiedhovertitle: { text: "%{x|%d %b<br>%H:%M}" },
             ...(period ? { range: [ `${period.split(":")[0]}T00:00:00`, new Date(Date.parse(`${period.split(":")[1]}T00:00:00Z`) + 86400000).toISOString().replace(/Z$/, "") ] } : {}) },
-          yaxis: { title: { text: "GHI [W/m²]" }, rangemode: "tozero", gridcolor: "#e5e7eb" },
+          yaxis: { title: { text: "GHI [W/m²]" }, range: yRange, fixedrange: false, gridcolor: "#e5e7eb" },
           shapes: [{ type: "line", xref: "x", yref: "paper", x0: nowMinute, x1: nowMinute, y0: 0, y1: 1,
             line: { color: "#000000", width: 1.5 } }],
           annotations: [{ x: nowMinute, xref: "x", y: 1, yref: "paper", xanchor: "center", yanchor: "bottom", showarrow: false,

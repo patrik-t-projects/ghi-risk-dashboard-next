@@ -91,6 +91,7 @@ test('dashboard UI exposes edit-only layout controls and live widget renderers',
   assert.match(widgets, /<ControlAreaBalanceChart/);
   assert.match(widgets, /<ImbalanceForecastFrame/);
   assert.match(widgets, /period=\{`\$\{from\}:\$\{to\}`\} fillHeight/);
+  assert.match(fs.readFileSync('src/components/ForecastChart.tsx', 'utf8'), /sharedGhiRange\(segments\)/);
   assert.match(widgets, /from=\{from\} to=\{to\} fillHeight/);
   assert.doesNotMatch(widgets, /height - 180/);
   assert.match(fs.readFileSync('src/components/ForecastChart.tsx', 'utf8'), /Plotly\.relayout\(element/);
