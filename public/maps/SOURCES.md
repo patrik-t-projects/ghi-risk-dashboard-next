@@ -14,7 +14,7 @@ Postal-code boundary lines: Federal Office of Topography swisstopo, Official dir
 - Source catalog: https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo-vd.ortschaftenverzeichnis_plz
 - Product information: https://www.swisstopo.admin.ch/en/official-directory-of-towns-and-cities
 - Geometry: transformed from LV95 to WGS84 and simplified to a boundaries-only local GeoJSON asset
-- Hover lookup: official GeoAdmin identify service, requested only after pointer movement pauses
+- Grid-point PLZ lookup and isolated-point clipping polygons: official GeoAdmin identify service
 - License source: https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices
 
 Major lake areas: Federal Office of Topography swisstopo, swissTLMRegio.

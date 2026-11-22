@@ -12,6 +12,9 @@ const context = { exports: {}, require: name => {
   if (name.startsWith('react')) return require(name);
   if (name === '@/lib/fogClient') return { fetchFogForecast: () => Promise.reject(Error('not called during render')) };
   if (name === '@/lib/fogCsv') return { fogRecordsAtTime: () => [] };
+  if (name === '@/lib/fogGrid') return {
+    distanceToGridEdgeKm: () => 0, fogGridComponents: () => [], fogGridKey: () => 'grid', gridDistanceKm: () => 0, uniqueFogGridPoints: () => [],
+  };
   if (name.endsWith('.module.css')) return { default: {} };
   throw Error(`Unexpected dependency: ${name}`);
 } };
@@ -44,6 +47,27 @@ test('Fog map Beta follows GHI map in dashboard navigation and renders locally',
 test('Fog map includes all confirmed runtime choices and detailed hover fields', () => {
   const source = fs.readFileSync('src/components/FogMap.tsx', 'utf8');
   for (const label of ['Day-Ahead 0 UTC', 'Intraday 0 UTC', 'Intraday 6 UTC']) assert.match(source, new RegExp(label));
-  for (const label of ['Fog probability', 'PLZ', 'Nearest grid point', 'Grid elevation', 'Model level', 'Level height']) assert.match(source, new RegExp(label));
+  for (const label of ['Fog probability', 'PLZ', 'Grid point', 'Grid elevation', 'Model level', 'Level height']) assert.match(source, new RegExp(label));
   assert.match(source, /switzerland-postcode-boundaries\.geojson/);
+});
+
+test('Fog coloring follows grid topology, clips isolated points to PLZ and only hovers actual points', () => {
+  const source = fs.readFileSync('src/components/FogMap.tsx', 'utf8');
+  assert.match(source, /const components = useMemo\(\(\) => fogGridComponents\(gridPoints\)/);
+  assert.match(source, /components\.filter\(component => !component\.isolated\)/);
+  assert.match(source, /components\.filter\(component => component\.isolated\)/);
+  assert.match(source, /projection\.geometryPath\(feature\.geometry\)/);
+  assert.match(source, /onPointerEnter=\{event => showGridHover\(event, record\)\}/);
+  assert.match(source, /hover\.nearest\.fogProbability/);
+  assert.doesNotMatch(source, /nearestRecord\(/);
+  assert.doesNotMatch(source, /r="8" fill="transparent"/);
+  assert.match(source, /writingMode: "vertical-lr", direction: "ltr"/);
+});
+
+test('postcode endpoint returns official polygon geometry for isolated-grid clipping', () => {
+  const source = fs.readFileSync('src/app/api/postcode/route.ts', 'utf8');
+  assert.match(source, /returnGeometry: "true"/);
+  assert.match(source, /geometryFormat: "geojson"/);
+  assert.match(source, /feature\?\.properties \?\? feature\?\.attributes/);
+  assert.match(source, /geometry: feature\?\.geometry \?\? null/);
 });
