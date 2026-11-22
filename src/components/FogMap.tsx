@@ -252,6 +252,8 @@ export default function FogMap({ resolution }: { resolution: GhiForecastResoluti
   function endMapDrag(event: ReactPointerEvent<SVGSVGElement>) { if (mapDrag.current?.pointer === event.pointerId) mapDrag.current = null; }
 
   const selectedIndex = Math.max(0, times.indexOf(selectedTime));
+  const timeSliderPosition = times.length > 1 ? selectedIndex / (times.length - 1) * 100 : 0;
+  const timeSliderTransform = selectedIndex === 0 ? "translateX(0)" : selectedIndex === times.length - 1 ? "translateX(-100%)" : "translateX(-50%)";
 
   return <div className="h-[calc(100dvh-4rem)] overflow-y-auto p-4 sm:p-6">
     <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
@@ -312,8 +314,12 @@ export default function FogMap({ resolution }: { resolution: GhiForecastResoluti
       </div>
       <div className="border-t border-white/5 px-5 py-4">
         <div className="mb-2 flex items-center justify-between gap-4 text-xs"><span className="font-medium text-slate-200">{selectedTime ? formatTime(selectedTime) : "Time unavailable"}</span><span className="text-slate-500">{resolution === "15min" ? "15-minute interpolation" : "Hourly"}</span></div>
-        <input aria-label="Forecast valid time UTC" type="range" min="0" max={Math.max(0, times.length - 1)} value={selectedIndex} disabled={!times.length}
-          onChange={event => setSelectedTime(times[Number(event.target.value)] ?? "")} className="w-full accent-cyan-400" />
+        <div className="relative pt-9">
+          {selectedTime && <output aria-live="polite" aria-label="Selected forecast time" className="absolute top-0 whitespace-nowrap rounded-md border border-cyan-300/20 bg-cyan-400/12 px-2 py-1 text-sm font-medium text-cyan-100"
+            style={{ left: `${timeSliderPosition}%`, transform: timeSliderTransform }}>{formatTime(selectedTime)}</output>}
+          <input aria-label="Forecast valid time UTC" type="range" min="0" max={Math.max(0, times.length - 1)} value={selectedIndex} disabled={!times.length}
+            onChange={event => setSelectedTime(times[Number(event.target.value)] ?? "")} className="w-full accent-cyan-400" />
+        </div>
         <div className="mt-1 flex justify-between text-[9px] text-slate-500"><span>{times[0] ? formatTime(times[0]) : ""}</span><span>{times.at(-1) ? formatTime(times.at(-1)!) : ""}</span></div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-5 py-3 text-[10px] text-slate-500">

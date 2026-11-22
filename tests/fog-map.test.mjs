@@ -71,3 +71,11 @@ test('postcode endpoint returns official polygon geometry for isolated-grid clip
   assert.match(source, /feature\?\.properties \?\? feature\?\.attributes/);
   assert.match(source, /geometry: feature\?\.geometry \?\? null/);
 });
+
+test('time slider shows the selected UTC timestamp at the thumb position', () => {
+  const source = fs.readFileSync('src/components/FogMap.tsx', 'utf8');
+  assert.match(source, /const timeSliderPosition = times\.length > 1 \? selectedIndex \/ \(times\.length - 1\) \* 100 : 0/);
+  assert.match(source, /aria-label="Selected forecast time"/);
+  assert.match(source, /style=\{\{ left: `\$\{timeSliderPosition\}%`, transform: timeSliderTransform \}\}/);
+  assert.match(source, /\{formatTime\(selectedTime\)\}<\/output>/);
+});
